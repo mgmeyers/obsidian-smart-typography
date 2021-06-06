@@ -1,112 +1,213 @@
-import { App, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting } from "obsidian";
 
-interface MyPluginSettings {
-	mySetting: string;
+interface SmartTypographySettings {
+  curlyQuotes: boolean;
+  emDash: boolean;
+  ellipsis: boolean;
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+const DEFAULT_SETTINGS: SmartTypographySettings = {
+  curlyQuotes: true,
+  emDash: true,
+  ellipsis: true,
+};
+
+type InputRule = [
+  string,
+  RegExp,
+  (delta: CodeMirror.EditorChangeCancellable) => void
+];
+
+const emDash: InputRule = [
+  "-",
+  /--$/,
+  (delta: CodeMirror.EditorChangeCancellable) => {
+    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
+      "—",
+    ]);
+  },
+];
+
+const ellipsis: InputRule = [
+  ".",
+  /\.\.\.$/,
+  (delta: CodeMirror.EditorChangeCancellable) => {
+    delta.update({ line: delta.from.line, ch: delta.from.ch - 2 }, delta.to, [
+      "…",
+    ]);
+  },
+];
+
+const openDoubleQuote: InputRule = [
+  '"',
+  /(?:^|[\s\{\[\(\<'"\u2018\u201C])(")$/,
+  (delta: CodeMirror.EditorChangeCancellable) => {
+    delta.update(delta.from, delta.to, ["“"]);
+  },
+];
+
+const closeDoubleQuote: InputRule = [
+  '"',
+  /"$/,
+  (delta: CodeMirror.EditorChangeCancellable) => {
+    delta.update(delta.from, delta.to, ["”"]);
+  },
+];
+
+const pairedDoubleQuote: InputRule = [
+  '""',
+  /""$/,
+  (delta: CodeMirror.EditorChangeCancellable) => {
+    delta.update(delta.from, delta.to, ["“”"]);
+  },
+];
+
+const openSingleQuote: InputRule = [
+  "'",
+  /(?:^|[\s\{\[\(\<'"\u2018\u201C])(')$/,
+  (delta: CodeMirror.EditorChangeCancellable) => {
+    delta.update(delta.from, delta.to, ["‘"]);
+  },
+];
+
+const closeSingleQuote: InputRule = [
+  "'",
+  /'$/,
+  (delta: CodeMirror.EditorChangeCancellable) => {
+    delta.update(delta.from, delta.to, ["’"]);
+  },
+];
+
+const pairedSingleQuote: InputRule = [
+  "''",
+  /''$/,
+  (delta: CodeMirror.EditorChangeCancellable) => {
+    delta.update(delta.from, delta.to, ["‘’"]);
+  },
+];
+
+const emDashRules = [emDash];
+const ellipsisRules = [ellipsis];
+const smartQuoteRules = [
+  openDoubleQuote,
+  closeDoubleQuote,
+  pairedDoubleQuote,
+  openSingleQuote,
+  closeSingleQuote,
+  pairedSingleQuote,
+];
+
+export default class SmartTypography extends Plugin {
+  settings: SmartTypographySettings;
+  inputRules: InputRule[] = [];
+
+  async onload() {
+    await this.loadSettings();
+
+    this.addSettingTab(new SmartTypographySettingTab(this.app, this));
+
+    this.registerCodeMirror((cm) => {
+      cm.on("beforeChange", (instance, delta) => {
+        if (delta.origin === "+input" && delta.text.length === 1) {
+          const input = delta.text[0];
+          const rules = this.inputRules.filter((r) => r[0] === input);
+
+          if (rules.length === 0) return;
+
+          let str = input;
+
+          if (delta.to.ch > 0) {
+            str = `${instance.getRange(
+              { line: delta.to.line, ch: 0 },
+              delta.to
+            )}${str}`;
+          }
+
+          for (let rule of rules) {
+            if ((rule[1] as RegExp).test(str)) {
+              rule[2](delta);
+              break;
+            }
+          }
+        }
+      });
+    });
+  }
+
+  async loadSettings() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.buildInputRules();
+  }
+
+  async saveSettings() {
+    this.buildInputRules();
+    await this.saveData(this.settings);
+  }
+
+  buildInputRules() {
+    this.inputRules = [];
+
+    if (this.settings.emDash) {
+      this.inputRules.push(...emDashRules);
+    }
+
+    if (this.settings.ellipsis) {
+      this.inputRules.push(...ellipsisRules);
+    }
+
+    if (this.settings.curlyQuotes) {
+      this.inputRules.push(...smartQuoteRules);
+    }
+  }
 }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+class SmartTypographySettingTab extends PluginSettingTab {
+  plugin: SmartTypography;
 
-	async onload() {
-		console.log('loading plugin');
+  constructor(app: App, plugin: SmartTypography) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
 
-		await this.loadSettings();
+  display(): void {
+    let { containerEl } = this;
 
-		this.addRibbonIcon('dice', 'Sample Plugin', () => {
-			new Notice('This is a notice!');
-		});
+    containerEl.empty();
 
-		this.addStatusBarItem().setText('Status Bar Text');
+    new Setting(containerEl)
+      .setName("Curly Quotes")
+      .setDesc(
+        "Double and single quotes will be converted to curly quotes (“” & ‘’)"
+      )
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.curlyQuotes)
+          .onChange(async (value) => {
+            this.plugin.settings.curlyQuotes = value;
+            await this.plugin.saveSettings();
+          });
+      });
 
-		this.addCommand({
-			id: 'open-sample-modal',
-			name: 'Open Sample Modal',
-			// callback: () => {
-			// 	console.log('Simple Callback');
-			// },
-			checkCallback: (checking: boolean) => {
-				let leaf = this.app.workspace.activeLeaf;
-				if (leaf) {
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-					return true;
-				}
-				return false;
-			}
-		});
+    new Setting(containerEl)
+      .setName("Em Dash")
+      .setDesc("Two dashes (--) will be converted to an em dash (—)")
+      .addToggle((toggle) => {
+        toggle.setValue(this.plugin.settings.emDash).onChange(async (value) => {
+          this.plugin.settings.emDash = value;
+          await this.plugin.saveSettings();
+        });
+      });
 
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		this.registerCodeMirror((cm: CodeMirror.Editor) => {
-			console.log('codemirror', cm);
-		});
-
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
-
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-	}
-
-	onunload() {
-		console.log('unloading plugin');
-	}
-
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-	}
-
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
-	onOpen() {
-		let {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		let {contentEl} = this;
-		contentEl.empty();
-	}
-}
-
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
-
-	constructor(app: App, plugin: MyPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
-
-	display(): void {
-		let {containerEl} = this;
-
-		containerEl.empty();
-
-		containerEl.createEl('h2', {text: 'Settings for my awesome plugin.'});
-
-		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue('')
-				.onChange(async (value) => {
-					console.log('Secret: ' + value);
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
-	}
+    new Setting(containerEl)
+      .setName("Ellipsis")
+      .setDesc("Three periods (...) will be converted to an ellipses (…)")
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.ellipsis)
+          .onChange(async (value) => {
+            this.plugin.settings.ellipsis = value;
+            await this.plugin.saveSettings();
+          });
+      });
+  }
 }
