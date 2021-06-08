@@ -16,7 +16,6 @@ export default {
   output: {
     dir: '.',
     sourcemap: isProd ? false : 'inline',
-    sourcemapExcludeSources: isProd,
     format: 'cjs',
     exports: 'default',
     banner,
