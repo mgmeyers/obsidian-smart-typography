@@ -1,5 +1,10 @@
-import { ellipsisRules, emDashRules, InputRule, smartQuoteRules } from "inputRules";
-import { App, MarkdownView, Plugin, PluginSettingTab, Setting } from "obsidian";
+import {
+  ellipsisRules,
+  emDashRules,
+  InputRule,
+  smartQuoteRules,
+} from "inputRules";
+import { App, Plugin, PluginSettingTab, Setting } from "obsidian";
 
 interface SmartTypographySettings {
   curlyQuotes: boolean;
@@ -13,17 +18,10 @@ const DEFAULT_SETTINGS: SmartTypographySettings = {
   ellipsis: true,
 };
 
-type ChangeHandler = (
-  instance: CodeMirror.Editor,
-  delta: CodeMirror.EditorChangeCancellable
-) => void;
-
 export default class SmartTypography extends Plugin {
   settings: SmartTypographySettings;
-  inputRules: InputRule[] = [];
-
-  didJustUpdate: { [id: string]: InputRule | undefined } = {};
-  changeHandlers: { [id: string]: ChangeHandler } = {};
+  inputRules: InputRule[];
+  lastUpdate: WeakMap<CodeMirror.Editor, InputRule>;
 
   buildInputRules() {
     this.inputRules = [];
@@ -41,116 +39,68 @@ export default class SmartTypography extends Plugin {
     }
   }
 
-  getCodeMirrorID(cm: CodeMirror.Editor, cb: (id: string | null) => void) {
-    // Wait for the layout to settle
-    setTimeout(() => {
-      const gutter = cm.getGutterElement();
-      const markdownLeaves = this.app.workspace.getLeavesOfType("markdown");
-      const containingLeaf = markdownLeaves.find((l) =>
-        l.view.containerEl.contains(gutter)
-      );
+  beforeChangeHandler = (
+    instance: CodeMirror.Editor,
+    delta: CodeMirror.EditorChangeCancellable
+  ) => {
+    if (this.lastUpdate.has(instance) && delta.origin === "+delete") {
+      this.lastUpdate.get(instance).performRevert(instance, delta);
+      this.lastUpdate.delete(instance);
+      return;
+    }
 
-      if (containingLeaf) {
-        return cb((containingLeaf as any).id);
-      }
+    if (delta.origin === "+input" && delta.text.length === 1) {
+      const input = delta.text[0];
+      const rules = this.inputRules.filter((r) => r.matchTrigger === input);
 
-      cb(null);
-    });
-  }
-
-  handleLayoutChange = () => {
-    const leafIds: { [id: string]: boolean } = {};
-    const didJustUpdate: { [id: string]: InputRule | undefined } = {};
-    const changeHandlers: { [id: string]: ChangeHandler } = {};
-
-    this.app.workspace.iterateAllLeaves((leaf) => {
-      if (leaf.view instanceof MarkdownView) {
-        const id = (leaf as any).id;
-        leafIds[id] = true;
-      }
-    });
-
-    Object.keys(this.didJustUpdate).forEach((k) => {
-      if (leafIds[k]) {
-        didJustUpdate[k] = this.didJustUpdate[k];
-        changeHandlers[k] = this.changeHandlers[k];
-      }
-    });
-
-    this.didJustUpdate = didJustUpdate;
-    this.changeHandlers = changeHandlers;
-  };
-
-  getBeforeChangeHandler(id: string) {
-    return (
-      instance: CodeMirror.Editor,
-      delta: CodeMirror.EditorChangeCancellable
-    ) => {
-      if (this.didJustUpdate[id] && delta.origin === "+delete") {
-        this.didJustUpdate[id].performRevert(instance, delta);
-        this.didJustUpdate[id] = undefined;
+      if (rules.length === 0) {
+        if (this.lastUpdate.has(instance)) {
+          this.lastUpdate.delete(instance);
+        }
         return;
       }
 
-      if (delta.origin === "+input" && delta.text.length === 1) {
-        const input = delta.text[0];
-        const rules = this.inputRules.filter((r) => r.matchTrigger === input);
+      let str = input;
 
-        if (rules.length === 0) {
-          this.didJustUpdate[id] = undefined;
+      if (delta.to.ch > 0) {
+        str = `${instance.getRange(
+          { line: delta.to.line, ch: 0 },
+          delta.to
+        )}${str}`;
+      }
+
+      for (let rule of rules) {
+        if (rule.matchRegExp.test(str)) {
+          this.lastUpdate.set(instance, rule);
+          rule.performUpdate(instance, delta);
           return;
-        };
-
-        let str = input;
-
-        if (delta.to.ch > 0) {
-          str = `${instance.getRange(
-            { line: delta.to.line, ch: 0 },
-            delta.to
-          )}${str}`;
-        }
-
-        for (let rule of rules) {
-          if (rule.matchRegExp.test(str)) {
-            this.didJustUpdate[id] = rule;
-            rule.performUpdate(instance, delta);
-            return;
-          }
         }
       }
+    }
 
-      if (this.didJustUpdate[id]) {
-        this.didJustUpdate[id] = undefined;
-      }
-    };
-  }
+    if (this.lastUpdate.has(instance)) {
+      this.lastUpdate.delete(instance);
+    }
+  };
 
   async onload() {
+    this.lastUpdate = new WeakMap();
+
     await this.loadSettings();
 
     this.addSettingTab(new SmartTypographySettingTab(this.app, this));
 
-    this.app.workspace.on("layout-change", this.handleLayoutChange);
     this.app.workspace.onLayoutReady(() => {
       this.registerCodeMirror((cm: CodeMirror.Editor) => {
-        this.getCodeMirrorID(cm, (id) => {
-          if (!id) return;
-
-          const handleBeforeChange = this.getBeforeChangeHandler(id);
-          this.changeHandlers[id] = handleBeforeChange;
-          cm.on("beforeChange", handleBeforeChange);
-        });
+        cm.on("beforeChange", this.beforeChangeHandler);
       });
     });
   }
 
   onunload() {
-    this.app.workspace.off("layout-change", this.handleLayoutChange);
+    this.lastUpdate = null;
     this.app.workspace.iterateCodeMirrors((cm) => {
-      this.getCodeMirrorID(cm, (id) => {
-        if (!id) return;
-        cm.off("beforeChange", this.changeHandlers[id]);
-      });
+      cm.off("beforeChange", this.beforeChangeHandler);
     });
   }
 
