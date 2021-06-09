@@ -125,6 +125,36 @@ export const pairedSingleQuote: InputRule = {
   },
 };
 
+export const rightArrow: InputRule = {
+  matchTrigger: ">",
+  matchRegExp: /->$/,
+  performUpdate: (instance, delta) => {
+    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
+      "→",
+    ]);
+  },
+  performRevert: (instance, delta) => {
+    if (instance.getRange(delta.from, delta.to) === "→") {
+      delta.update(delta.from, delta.to, ["->"]);
+    }
+  },
+};
+
+export const leftArrow: InputRule = {
+  matchTrigger: "-",
+  matchRegExp: /<-$/,
+  performUpdate: (instance, delta) => {
+    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
+      "←",
+    ]);
+  },
+  performRevert: (instance, delta) => {
+    if (instance.getRange(delta.from, delta.to) === "←") {
+      delta.update(delta.from, delta.to, ["<-"]);
+    }
+  },
+};
+
 export const emDashRules = [emDash];
 export const ellipsisRules = [ellipsis];
 export const smartQuoteRules = [
@@ -135,3 +165,4 @@ export const smartQuoteRules = [
   closeSingleQuote,
   pairedSingleQuote,
 ];
+export const arrowRules = [leftArrow, rightArrow];

@@ -1,4 +1,5 @@
 import {
+  arrowRules,
   ellipsisRules,
   emDashRules,
   InputRule,
@@ -10,12 +11,14 @@ interface SmartTypographySettings {
   curlyQuotes: boolean;
   emDash: boolean;
   ellipsis: boolean;
+  arrows: boolean;
 }
 
 const DEFAULT_SETTINGS: SmartTypographySettings = {
   curlyQuotes: true,
   emDash: true,
   ellipsis: true,
+  arrows: true,
 };
 
 export default class SmartTypography extends Plugin {
@@ -36,6 +39,10 @@ export default class SmartTypography extends Plugin {
 
     if (this.settings.curlyQuotes) {
       this.inputRules.push(...smartQuoteRules);
+    }
+
+    if (this.settings.arrows) {
+      this.inputRules.push(...arrowRules);
     }
   }
 
@@ -162,6 +169,16 @@ class SmartTypographySettingTab extends PluginSettingTab {
             this.plugin.settings.ellipsis = value;
             await this.plugin.saveSettings();
           });
+      });
+
+    new Setting(containerEl)
+      .setName("Arrows")
+      .setDesc("<- / -> will be converted to ← / →")
+      .addToggle((toggle) => {
+        toggle.setValue(this.plugin.settings.arrows).onChange(async (value) => {
+          this.plugin.settings.arrows = value;
+          await this.plugin.saveSettings();
+        });
       });
   }
 }

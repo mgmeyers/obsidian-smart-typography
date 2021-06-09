@@ -1,14 +1,17 @@
 ## Obsidian Smart Typography
 
-Converts:
+This plugin (currently) converts:
 
-- "" to “Curly quotes”
-- '' to ‘single quotes’
-- -- to Em—dash
-- ... to Ellipsis…
+- `""` to `“”` - curly double quotes
+- `''` to `‘’` - curly single quotes
+- `--` to —  - em dash
+- `...` to `…` - ellipsis
 
-In obsidian.
+as you type. Any automatic changes can be undone by pressing backspace.
 
+I hope to expand this to support the conventions of other languages. **You can help me out with this by submitting an issue here, telling me what these conventions are**: https://github.com/mgmeyers/obsidian-smart-typography/issues
+
+<img src="https://raw.githubusercontent.com/mgmeyers/obsidian-smart-quotes/main/Screenshot.png" alt="Text Screenshot">
 
 ## Support
 
