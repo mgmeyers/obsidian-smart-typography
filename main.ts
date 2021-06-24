@@ -203,8 +203,6 @@ function shouldCheckTextAtPos(
 
   const tokens = instance.getTokenTypeAt(pos);
 
-  console.log('tokens', tokens)
-
   // Plain text line
   if (!tokens) {
     return true;
