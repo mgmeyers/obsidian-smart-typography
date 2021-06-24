@@ -1,7 +1,7 @@
 import {
   arrowRules,
   ellipsisRules,
-  emDashRules,
+  dashRules,
   InputRule,
   smartQuoteRules,
 } from "inputRules";
@@ -30,7 +30,7 @@ export default class SmartTypography extends Plugin {
     this.inputRules = [];
 
     if (this.settings.emDash) {
-      this.inputRules.push(...emDashRules);
+      this.inputRules.push(...dashRules);
     }
 
     if (this.settings.ellipsis) {
@@ -78,8 +78,13 @@ export default class SmartTypography extends Plugin {
 
       for (let rule of rules) {
         if (rule.matchRegExp.test(str)) {
-          this.lastUpdate.set(instance, rule);
-          rule.performUpdate(instance, delta);
+          if (
+            shouldCheckTextAtPos(instance, delta.from) &&
+            shouldCheckTextAtPos(instance, delta.to)
+          ) {
+            this.lastUpdate.set(instance, rule);
+            rule.performUpdate(instance, delta);
+          }
           return;
         }
       }
@@ -150,8 +155,10 @@ class SmartTypographySettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName("Em Dash")
-      .setDesc("Two dashes (--) will be converted to an em dash (—)")
+      .setName("Dashes")
+      .setDesc(
+        "Two dashes (--) will be converted to an en-dash (–). And en-dash followed by a dash will be converted to and em-dash (—). An em-dash followed by a dash will be converted into three dashes (---)"
+      )
       .addToggle((toggle) => {
         toggle.setValue(this.plugin.settings.emDash).onChange(async (value) => {
           this.plugin.settings.emDash = value;
@@ -181,4 +188,30 @@ class SmartTypographySettingTab extends PluginSettingTab {
         });
       });
   }
+}
+
+const ignoreListRegEx = /frontmatter|code|math/;
+
+function shouldCheckTextAtPos(
+  instance: CodeMirror.Editor,
+  pos: CodeMirror.Position
+) {
+  // Empty line
+  if (!instance.getLine(pos.line)) {
+    return false;
+  }
+
+  const tokens = instance.getTokenTypeAt(pos);
+
+  // Plain text line
+  if (!tokens) {
+    return true;
+  }
+
+  // Not codeblock or frontmatter
+  if (!ignoreListRegEx.test(tokens)) {
+    return true;
+  }
+
+  return false;
 }

@@ -11,19 +11,49 @@ export interface InputRule {
   ) => void;
 }
 
-export const emDash: InputRule = {
-  matchTrigger: "-",
-  matchRegExp: /--$/,
+const dashChar = "-";
+const enDashChar = "–";
+const emDashChar = "—";
+
+export const enDash: InputRule = {
+  matchTrigger: dashChar,
+  matchRegExp: /--$/, // dash, dash
   performUpdate: (instance, delta) => {
     delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
-      "—",
+      enDashChar,
     ]);
   },
   performRevert: (instance, delta) => {
-    if (instance.getRange(delta.from, delta.to) === "—") {
-      delta.update(delta.from, delta.to, ["--"]);
+    if (instance.getRange(delta.from, delta.to) === enDashChar) {
+      delta.update(delta.from, delta.to, [dashChar + dashChar]);
     }
   },
+};
+
+export const emDash: InputRule = {
+  matchTrigger: dashChar,
+  matchRegExp: /–-$/, // en-dash, dash
+  performUpdate: (instance, delta) => {
+    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
+      emDashChar,
+    ]);
+  },
+  performRevert: (instance, delta) => {
+    if (instance.getRange(delta.from, delta.to) === emDashChar) {
+      delta.update(delta.from, delta.to, [enDashChar + dashChar]);
+    }
+  },
+};
+
+export const trippleDash: InputRule = {
+  matchTrigger: dashChar,
+  matchRegExp: /—-$/, // em-dash, dash
+  performUpdate: (instance, delta) => {
+    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
+      dashChar + dashChar + dashChar,
+    ]);
+  },
+  performRevert: (instance, delta) => {},
 };
 
 export const ellipsis: InputRule = {
@@ -155,7 +185,7 @@ export const leftArrow: InputRule = {
   },
 };
 
-export const emDashRules = [emDash];
+export const dashRules = [enDash, emDash, trippleDash];
 export const ellipsisRules = [ellipsis];
 export const smartQuoteRules = [
   openDoubleQuote,
