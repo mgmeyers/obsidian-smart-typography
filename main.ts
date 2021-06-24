@@ -190,7 +190,7 @@ class SmartTypographySettingTab extends PluginSettingTab {
   }
 }
 
-const ignoreListRegEx = /frontmatter|code|math/;
+const ignoreListRegEx = /frontmatter|code|math|templater/;
 
 function shouldCheckTextAtPos(
   instance: CodeMirror.Editor,
@@ -202,6 +202,8 @@ function shouldCheckTextAtPos(
   }
 
   const tokens = instance.getTokenTypeAt(pos);
+
+  console.log('tokens', tokens)
 
   // Plain text line
   if (!tokens) {
