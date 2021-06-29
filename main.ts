@@ -4,21 +4,26 @@ import {
   dashRules,
   InputRule,
   smartQuoteRules,
+  guillemetRules,
 } from "inputRules";
 import { App, Plugin, PluginSettingTab, Setting } from "obsidian";
-
-interface SmartTypographySettings {
-  curlyQuotes: boolean;
-  emDash: boolean;
-  ellipsis: boolean;
-  arrows: boolean;
-}
+import { SmartTypographySettings } from "types";
 
 const DEFAULT_SETTINGS: SmartTypographySettings = {
   curlyQuotes: true,
   emDash: true,
   ellipsis: true,
   arrows: true,
+  guillemets: false,
+
+  openSingle: "‘",
+  closeSingle: "’",
+
+  openDouble: "“",
+  closeDouble: "”",
+
+  leftArrow: "←",
+  rightArrow: "→",
 };
 
 export default class SmartTypography extends Plugin {
@@ -44,6 +49,10 @@ export default class SmartTypography extends Plugin {
     if (this.settings.arrows) {
       this.inputRules.push(...arrowRules);
     }
+
+    if (this.settings.guillemets) {
+      this.inputRules.push(...guillemetRules);
+    }
   }
 
   beforeChangeHandler = (
@@ -51,7 +60,9 @@ export default class SmartTypography extends Plugin {
     delta: CodeMirror.EditorChangeCancellable
   ) => {
     if (this.lastUpdate.has(instance) && delta.origin === "+delete") {
-      this.lastUpdate.get(instance).performRevert(instance, delta);
+      this.lastUpdate
+        .get(instance)
+        .performRevert(instance, delta, this.settings);
       this.lastUpdate.delete(instance);
       return;
     }
@@ -83,7 +94,7 @@ export default class SmartTypography extends Plugin {
             shouldCheckTextAtPos(instance, delta.to)
           ) {
             this.lastUpdate.set(instance, rule);
-            rule.performUpdate(instance, delta);
+            rule.performUpdate(instance, delta, this.settings);
           }
           return;
         }
@@ -155,6 +166,71 @@ class SmartTypographySettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
+      .setName("Open double quote character")
+      .addText((text) => {
+        text
+          .setValue(this.plugin.settings.openDouble)
+          .onChange(async (value) => {
+            if (!value) return;
+            if (value.length > 1) {
+              text.setValue(value[0]);
+              return;
+            }
+
+            this.plugin.settings.openDouble = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Close double quote character")
+      .addText((text) => {
+        text
+          .setValue(this.plugin.settings.closeDouble)
+          .onChange(async (value) => {
+            if (!value) return;
+            if (value.length > 1) {
+              text.setValue(value[0]);
+              return;
+            }
+            this.plugin.settings.closeDouble = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Open single quote character")
+      .addText((text) => {
+        text
+          .setValue(this.plugin.settings.openSingle)
+          .onChange(async (value) => {
+            if (!value) return;
+            if (value.length > 1) {
+              text.setValue(value[0]);
+              return;
+            }
+            this.plugin.settings.openSingle = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Close single quote character")
+      .addText((text) => {
+        text
+          .setValue(this.plugin.settings.closeSingle)
+          .onChange(async (value) => {
+            if (!value) return;
+            if (value.length > 1) {
+              text.setValue(value[0]);
+              return;
+            }
+            this.plugin.settings.closeSingle = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
       .setName("Dashes")
       .setDesc(
         "Two dashes (--) will be converted to an en-dash (–). And en-dash followed by a dash will be converted to and em-dash (—). An em-dash followed by a dash will be converted into three dashes (---)"
@@ -179,6 +255,18 @@ class SmartTypographySettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
+      .setName("Guillemets")
+      .setDesc("<< / >> will be converted to « / »")
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.guillemets)
+          .onChange(async (value) => {
+            this.plugin.settings.guillemets = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
       .setName("Arrows")
       .setDesc("<- / -> will be converted to ← / →")
       .addToggle((toggle) => {
@@ -186,6 +274,34 @@ class SmartTypographySettingTab extends PluginSettingTab {
           this.plugin.settings.arrows = value;
           await this.plugin.saveSettings();
         });
+      });
+
+    new Setting(containerEl).setName("Left arrow character").addText((text) => {
+      text.setValue(this.plugin.settings.leftArrow).onChange(async (value) => {
+        if (!value) return;
+        if (value.length > 1) {
+          text.setValue(value[0]);
+          return;
+        }
+        this.plugin.settings.leftArrow = value;
+        await this.plugin.saveSettings();
+      });
+    });
+
+    new Setting(containerEl)
+      .setName("Right arrow character")
+      .addText((text) => {
+        text
+          .setValue(this.plugin.settings.rightArrow)
+          .onChange(async (value) => {
+            if (!value) return;
+            if (value.length > 1) {
+              text.setValue(value[0]);
+              return;
+            }
+            this.plugin.settings.rightArrow = value;
+            await this.plugin.saveSettings();
+          });
       });
   }
 }

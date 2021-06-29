@@ -1,13 +1,17 @@
+import { SmartTypographySettings } from "types";
+
 export interface InputRule {
   matchTrigger: string;
   matchRegExp: RegExp;
   performUpdate: (
     instance: CodeMirror.Editor,
-    delta: CodeMirror.EditorChangeCancellable
+    delta: CodeMirror.EditorChangeCancellable,
+    settings: SmartTypographySettings
   ) => void;
   performRevert: (
     instance: CodeMirror.Editor,
-    delta: CodeMirror.EditorChangeCancellable
+    delta: CodeMirror.EditorChangeCancellable,
+    settings: SmartTypographySettings
   ) => void;
 }
 
@@ -18,12 +22,12 @@ const emDashChar = "—";
 export const enDash: InputRule = {
   matchTrigger: dashChar,
   matchRegExp: /--$/, // dash, dash
-  performUpdate: (instance, delta) => {
+  performUpdate: (instance, delta, settings) => {
     delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
       enDashChar,
     ]);
   },
-  performRevert: (instance, delta) => {
+  performRevert: (instance, delta, settings) => {
     if (instance.getRange(delta.from, delta.to) === enDashChar) {
       delta.update(delta.from, delta.to, [dashChar + dashChar]);
     }
@@ -33,12 +37,12 @@ export const enDash: InputRule = {
 export const emDash: InputRule = {
   matchTrigger: dashChar,
   matchRegExp: /–-$/, // en-dash, dash
-  performUpdate: (instance, delta) => {
+  performUpdate: (instance, delta, settings) => {
     delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
       emDashChar,
     ]);
   },
-  performRevert: (instance, delta) => {
+  performRevert: (instance, delta, settings) => {
     if (instance.getRange(delta.from, delta.to) === emDashChar) {
       delta.update(delta.from, delta.to, [enDashChar + dashChar]);
     }
@@ -48,23 +52,23 @@ export const emDash: InputRule = {
 export const trippleDash: InputRule = {
   matchTrigger: dashChar,
   matchRegExp: /—-$/, // em-dash, dash
-  performUpdate: (instance, delta) => {
+  performUpdate: (instance, delta, settings) => {
     delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
       dashChar + dashChar + dashChar,
     ]);
   },
-  performRevert: (instance, delta) => {},
+  performRevert: (instance, delta, settings) => {},
 };
 
 export const ellipsis: InputRule = {
   matchTrigger: ".",
   matchRegExp: /\.\.\.$/,
-  performUpdate: (instance, delta) => {
+  performUpdate: (instance, delta, settings) => {
     delta.update({ line: delta.from.line, ch: delta.from.ch - 2 }, delta.to, [
       "…",
     ]);
   },
-  performRevert: (instance, delta) => {
+  performRevert: (instance, delta, settings) => {
     if (instance.getRange(delta.from, delta.to) === "…") {
       delta.update(delta.from, delta.to, ["..."]);
     }
@@ -74,11 +78,11 @@ export const ellipsis: InputRule = {
 export const openDoubleQuote: InputRule = {
   matchTrigger: '"',
   matchRegExp: /(?:^|[\s\{\[\(\<'"\u2018\u201C])(")$/,
-  performUpdate: (instance, delta) => {
-    delta.update(delta.from, delta.to, ["“"]);
+  performUpdate: (instance, delta, settings) => {
+    delta.update(delta.from, delta.to, [settings.openDouble]);
   },
-  performRevert: (instance, delta) => {
-    if (instance.getRange(delta.from, delta.to) === "“") {
+  performRevert: (instance, delta, settings) => {
+    if (instance.getRange(delta.from, delta.to) === settings.openDouble) {
       delta.update(delta.from, delta.to, ['"']);
     }
   },
@@ -87,11 +91,11 @@ export const openDoubleQuote: InputRule = {
 export const closeDoubleQuote: InputRule = {
   matchTrigger: '"',
   matchRegExp: /"$/,
-  performUpdate: (instance, delta) => {
-    delta.update(delta.from, delta.to, ["”"]);
+  performUpdate: (instance, delta, settings) => {
+    delta.update(delta.from, delta.to, [settings.closeDouble]);
   },
-  performRevert: (instance, delta) => {
-    if (instance.getRange(delta.from, delta.to) === "”") {
+  performRevert: (instance, delta, settings) => {
+    if (instance.getRange(delta.from, delta.to) === settings.closeDouble) {
       delta.update(delta.from, delta.to, ['"']);
     }
   },
@@ -100,11 +104,13 @@ export const closeDoubleQuote: InputRule = {
 export const pairedDoubleQuote: InputRule = {
   matchTrigger: '""',
   matchRegExp: /""$/,
-  performUpdate: (instance, delta) => {
-    delta.update(delta.from, delta.to, ["“”"]);
+  performUpdate: (instance, delta, settings) => {
+    delta.update(delta.from, delta.to, [
+      settings.openDouble + settings.closeDouble,
+    ]);
   },
-  performRevert: (instance, delta) => {
-    if (instance.getRange(delta.from, delta.to) === "“") {
+  performRevert: (instance, delta, settings) => {
+    if (instance.getRange(delta.from, delta.to) === settings.closeDouble) {
       delta.update(delta.from, { ...delta.to, ch: delta.to.ch + 1 }, ['""']);
       setTimeout(() =>
         instance.setCursor({ ...delta.from, ch: delta.from.ch + 1 })
@@ -116,11 +122,11 @@ export const pairedDoubleQuote: InputRule = {
 export const openSingleQuote: InputRule = {
   matchTrigger: "'",
   matchRegExp: /(?:^|[\s\{\[\(\<'"\u2018\u201C])(')$/,
-  performUpdate: (instance, delta) => {
-    delta.update(delta.from, delta.to, ["‘"]);
+  performUpdate: (instance, delta, settings) => {
+    delta.update(delta.from, delta.to, [settings.openSingle]);
   },
-  performRevert: (instance, delta) => {
-    if (instance.getRange(delta.from, delta.to) === "‘") {
+  performRevert: (instance, delta, settings) => {
+    if (instance.getRange(delta.from, delta.to) === settings.openSingle) {
       delta.update(delta.from, delta.to, ["'"]);
     }
   },
@@ -129,11 +135,11 @@ export const openSingleQuote: InputRule = {
 export const closeSingleQuote: InputRule = {
   matchTrigger: "'",
   matchRegExp: /'$/,
-  performUpdate: (instance, delta) => {
-    delta.update(delta.from, delta.to, ["’"]);
+  performUpdate: (instance, delta, settings) => {
+    delta.update(delta.from, delta.to, [settings.closeSingle]);
   },
-  performRevert: (instance, delta) => {
-    if (instance.getRange(delta.from, delta.to) === "’") {
+  performRevert: (instance, delta, settings) => {
+    if (instance.getRange(delta.from, delta.to) === settings.closeSingle) {
       delta.update(delta.from, delta.to, ["'"]);
     }
   },
@@ -142,11 +148,13 @@ export const closeSingleQuote: InputRule = {
 export const pairedSingleQuote: InputRule = {
   matchTrigger: "''",
   matchRegExp: /''$/,
-  performUpdate: (instance, delta) => {
-    delta.update(delta.from, delta.to, ["‘’"]);
+  performUpdate: (instance, delta, settings) => {
+    delta.update(delta.from, delta.to, [
+      settings.openSingle + settings.closeSingle,
+    ]);
   },
-  performRevert: (instance, delta) => {
-    if (instance.getRange(delta.from, delta.to) === "‘") {
+  performRevert: (instance, delta, settings) => {
+    if (instance.getRange(delta.from, delta.to) === settings.closeSingle) {
       delta.update(delta.from, { ...delta.to, ch: delta.to.ch + 1 }, ["''"]);
       setTimeout(() =>
         instance.setCursor({ ...delta.from, ch: delta.from.ch + 1 })
@@ -158,13 +166,13 @@ export const pairedSingleQuote: InputRule = {
 export const rightArrow: InputRule = {
   matchTrigger: ">",
   matchRegExp: /->$/,
-  performUpdate: (instance, delta) => {
+  performUpdate: (instance, delta, settings) => {
     delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
-      "→",
+      settings.rightArrow,
     ]);
   },
-  performRevert: (instance, delta) => {
-    if (instance.getRange(delta.from, delta.to) === "→") {
+  performRevert: (instance, delta, settings) => {
+    if (instance.getRange(delta.from, delta.to) === settings.rightArrow) {
       delta.update(delta.from, delta.to, ["->"]);
     }
   },
@@ -173,14 +181,44 @@ export const rightArrow: InputRule = {
 export const leftArrow: InputRule = {
   matchTrigger: "-",
   matchRegExp: /<-$/,
-  performUpdate: (instance, delta) => {
+  performUpdate: (instance, delta, settings) => {
     delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
-      "←",
+      settings.leftArrow,
     ]);
   },
-  performRevert: (instance, delta) => {
-    if (instance.getRange(delta.from, delta.to) === "←") {
+  performRevert: (instance, delta, settings) => {
+    if (instance.getRange(delta.from, delta.to) === settings.leftArrow) {
       delta.update(delta.from, delta.to, ["<-"]);
+    }
+  },
+};
+
+export const rightGuillemet: InputRule = {
+  matchTrigger: ">",
+  matchRegExp: />>$/,
+  performUpdate: (instance, delta, settings) => {
+    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
+      "»",
+    ]);
+  },
+  performRevert: (instance, delta, settings) => {
+    if (instance.getRange(delta.from, delta.to) === "»") {
+      delta.update(delta.from, delta.to, [">>"]);
+    }
+  },
+};
+
+export const leftGuillemet: InputRule = {
+  matchTrigger: "<",
+  matchRegExp: /<<$/,
+  performUpdate: (instance, delta, settings) => {
+    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
+      "«",
+    ]);
+  },
+  performRevert: (instance, delta, settings) => {
+    if (instance.getRange(delta.from, delta.to) === "«") {
+      delta.update(delta.from, delta.to, ["<<"]);
     }
   },
 };
@@ -196,3 +234,4 @@ export const smartQuoteRules = [
   pairedSingleQuote,
 ];
 export const arrowRules = [leftArrow, rightArrow];
+export const guillemetRules = [leftGuillemet, rightGuillemet];

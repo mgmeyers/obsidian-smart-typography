@@ -2,10 +2,16 @@
 
 This plugin (currently) converts:
 
-- `""` to `“”` - curly double quotes
-- `''` to `‘’` - curly single quotes
-- `--` to —  - em dash
+- `""` to `“”` - curly double quotes (customizable)
+- `''` to `‘’` - curly single quotes (customizable)
 - `...` to `…` - ellipsis
+- `->` to `→` (customizable)
+- `<-` to `←` (customizable)
+- `<<` to `«`
+- `>>` to `»`
+- Two dashes (`--`) to – - en-dash
+- En-dash + dash (`–-`) to — - em-dash
+- Em-dash + dash (`—-`) to `---` - three dashes
 
 as you type. Any automatic changes can be undone by pressing backspace.
 
