@@ -1,18 +1,20 @@
 import { SmartTypographySettings } from "types";
 
 export interface InputRule {
-  matchTrigger: string;
-  matchRegExp: RegExp;
+  matchTrigger: string | RegExp;
+  matchRegExp: RegExp | false;
   performUpdate: (
     instance: CodeMirror.Editor,
     delta: CodeMirror.EditorChangeCancellable,
     settings: SmartTypographySettings
   ) => void;
-  performRevert: (
-    instance: CodeMirror.Editor,
-    delta: CodeMirror.EditorChangeCancellable,
-    settings: SmartTypographySettings
-  ) => void;
+  performRevert:
+    | ((
+        instance: CodeMirror.Editor,
+        delta: CodeMirror.EditorChangeCancellable,
+        settings: SmartTypographySettings
+      ) => void)
+    | false;
 }
 
 const dashChar = "-";
@@ -119,6 +121,17 @@ export const pairedDoubleQuote: InputRule = {
   },
 };
 
+export const wrappedDoubleQuote: InputRule = {
+  matchTrigger: /^".*"$/,
+  matchRegExp: false,
+  performUpdate: (instance, delta, settings) => {
+    delta.update(delta.from, delta.to, [
+      settings.openDouble + delta.text[0].slice(1, -1) + settings.closeDouble,
+    ]);
+  },
+  performRevert: false,
+};
+
 export const openSingleQuote: InputRule = {
   matchTrigger: "'",
   matchRegExp: /(?:^|[\s\{\[\(\<'"\u2018\u201C])(')$/,
@@ -161,6 +174,17 @@ export const pairedSingleQuote: InputRule = {
       );
     }
   },
+};
+
+export const wrappedSingleQuote: InputRule = {
+  matchTrigger: /^'.*'$/,
+  matchRegExp: false,
+  performUpdate: (instance, delta, settings) => {
+    delta.update(delta.from, delta.to, [
+      settings.openSingle + delta.text[0].slice(1, -1) + settings.closeSingle,
+    ]);
+  },
+  performRevert: false,
 };
 
 export const rightArrow: InputRule = {
@@ -229,9 +253,11 @@ export const smartQuoteRules = [
   openDoubleQuote,
   closeDoubleQuote,
   pairedDoubleQuote,
+  wrappedDoubleQuote,
   openSingleQuote,
   closeSingleQuote,
   pairedSingleQuote,
+  wrappedSingleQuote,
 ];
 export const arrowRules = [leftArrow, rightArrow];
 export const guillemetRules = [leftGuillemet, rightGuillemet];

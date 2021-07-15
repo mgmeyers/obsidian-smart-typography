@@ -60,16 +60,37 @@ export default class SmartTypography extends Plugin {
     delta: CodeMirror.EditorChangeCancellable
   ) => {
     if (this.lastUpdate.has(instance) && delta.origin === "+delete") {
-      this.lastUpdate
-        .get(instance)
-        .performRevert(instance, delta, this.settings);
-      this.lastUpdate.delete(instance);
+      const revert = this.lastUpdate.get(instance).performRevert;
+
+      if (revert) {
+        revert(instance, delta, this.settings);
+        this.lastUpdate.delete(instance);
+      }
+      return;
+    }
+
+    if (delta.origin === undefined && delta.text.length === 1) {
+      const input = delta.text[0];
+
+      for (let rule of this.inputRules) {
+        if (!(rule.matchTrigger instanceof RegExp)) {
+          continue;
+        }
+
+        if (rule.matchTrigger.test(input)) {
+          rule.performUpdate(instance, delta, this.settings);
+          return;
+        }
+      }
+
       return;
     }
 
     if (delta.origin === "+input" && delta.text.length === 1) {
       const input = delta.text[0];
-      const rules = this.inputRules.filter((r) => r.matchTrigger === input);
+      const rules = this.inputRules.filter((r) => {
+        return typeof r.matchTrigger === "string" && r.matchTrigger === input;
+      });
 
       if (rules.length === 0) {
         if (this.lastUpdate.has(instance)) {
@@ -88,7 +109,7 @@ export default class SmartTypography extends Plugin {
       }
 
       for (let rule of rules) {
-        if (rule.matchRegExp.test(str)) {
+        if (rule.matchRegExp && rule.matchRegExp.test(str)) {
           if (
             shouldCheckTextAtPos(instance, delta.from) &&
             shouldCheckTextAtPos(instance, delta.to)
@@ -314,7 +335,7 @@ function shouldCheckTextAtPos(
 ) {
   // Empty line
   if (!instance.getLine(pos.line)) {
-    return false;
+    return true;
   }
 
   const tokens = instance.getTokenTypeAt(pos);
