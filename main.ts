@@ -5,6 +5,7 @@ import {
   InputRule,
   smartQuoteRules,
   guillemetRules,
+  comparisonRules,
 } from "inputRules";
 import { App, Plugin, PluginSettingTab, Setting } from "obsidian";
 import { SmartTypographySettings } from "types";
@@ -15,6 +16,7 @@ const DEFAULT_SETTINGS: SmartTypographySettings = {
   ellipsis: true,
   arrows: true,
   guillemets: false,
+  comparisons: true,
 
   openSingle: "‘",
   closeSingle: "’",
@@ -24,6 +26,10 @@ const DEFAULT_SETTINGS: SmartTypographySettings = {
 
   leftArrow: "←",
   rightArrow: "→",
+
+  lessThanOrEqualTo: "≤",
+  greaterThanOrEqualTo: "≥",
+  notEqualTo: "≠",
 };
 
 export default class SmartTypography extends Plugin {
@@ -52,6 +58,9 @@ export default class SmartTypography extends Plugin {
 
     if (this.settings.guillemets) {
       this.inputRules.push(...guillemetRules);
+    }
+    if (this.settings.comparisons) {
+      this.inputRules.push(...comparisonRules);
     }
   }
 
@@ -277,7 +286,7 @@ class SmartTypographySettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Guillemets")
-      .setDesc("<< / >> will be converted to « / »")
+      .setDesc("<< | >> will be converted to « | »")
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.guillemets)
@@ -289,7 +298,7 @@ class SmartTypographySettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Arrows")
-      .setDesc("<- / -> will be converted to ← / →")
+      .setDesc("<- | -> will be converted to ← | →")
       .addToggle((toggle) => {
         toggle.setValue(this.plugin.settings.arrows).onChange(async (value) => {
           this.plugin.settings.arrows = value;
@@ -321,6 +330,65 @@ class SmartTypographySettingTab extends PluginSettingTab {
               return;
             }
             this.plugin.settings.rightArrow = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Comparison")
+      .setDesc("<= | >= | /= will be converted to ≤ | ≥ | ≠")
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.comparisons)
+          .onChange(async (value) => {
+            this.plugin.settings.comparisons = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Less than or equal to character")
+      .addText((text) => {
+        text
+          .setValue(this.plugin.settings.lessThanOrEqualTo)
+          .onChange(async (value) => {
+            if (!value) return;
+            if (value.length > 1) {
+              text.setValue(value[0]);
+              return;
+            }
+            this.plugin.settings.lessThanOrEqualTo = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Greater than or equal to character")
+      .addText((text) => {
+        text
+          .setValue(this.plugin.settings.greaterThanOrEqualTo)
+          .onChange(async (value) => {
+            if (!value) return;
+            if (value.length > 1) {
+              text.setValue(value[0]);
+              return;
+            }
+            this.plugin.settings.greaterThanOrEqualTo = value;
+            await this.plugin.saveSettings();
+          });
+      });
+    new Setting(containerEl)
+      .setName("Not equal to character")
+      .addText((text) => {
+        text
+          .setValue(this.plugin.settings.notEqualTo)
+          .onChange(async (value) => {
+            if (!value) return;
+            if (value.length > 1) {
+              text.setValue(value[0]);
+              return;
+            }
+            this.plugin.settings.notEqualTo = value;
             await this.plugin.saveSettings();
           });
       });
