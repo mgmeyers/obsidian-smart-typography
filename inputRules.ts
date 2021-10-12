@@ -217,6 +217,51 @@ export const leftArrow: InputRule = {
   },
 };
 
+export const greaterThanOrEqualTo: InputRule = {
+  matchTrigger: "=",
+  matchRegExp: />=$/,
+  performUpdate: (instance, delta, settings) => {
+    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
+      settings.greaterThanOrEqualTo,
+    ]);
+  },
+  performRevert: (instance, delta, settings) => {
+    if (instance.getRange(delta.from, delta.to) === settings.rightArrow) {
+      delta.update(delta.from, delta.to, [">="]);
+    }
+  },
+};
+
+export const lessThanOrEqualTo: InputRule = {
+  matchTrigger: "=",
+  matchRegExp: /<=$/,
+  performUpdate: (instance, delta, settings) => {
+    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
+      settings.lessThanOrEqualTo,
+    ]);
+  },
+  performRevert: (instance, delta, settings) => {
+    if (instance.getRange(delta.from, delta.to) === settings.leftArrow) {
+      delta.update(delta.from, delta.to, ["<="]);
+    }
+  },
+};
+
+export const notEqualTo: InputRule = {
+  matchTrigger: "=",
+  matchRegExp: /\/=$/,
+  performUpdate: (instance, delta, settings) => {
+    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
+      settings.notEqualTo,
+    ]);
+  },
+  performRevert: (instance, delta, settings) => {
+    if (instance.getRange(delta.from, delta.to) === settings.leftArrow) {
+      delta.update(delta.from, delta.to, ["/="]);
+    }
+  },
+};
+
 export const rightGuillemet: InputRule = {
   matchTrigger: ">",
   matchRegExp: />>$/,
@@ -258,6 +303,11 @@ export const smartQuoteRules = [
   closeSingleQuote,
   pairedSingleQuote,
   wrappedSingleQuote,
+];
+export const comparisonRules = [
+  lessThanOrEqualTo,
+  greaterThanOrEqualTo,
+  notEqualTo,
 ];
 export const arrowRules = [leftArrow, rightArrow];
 export const guillemetRules = [leftGuillemet, rightGuillemet];

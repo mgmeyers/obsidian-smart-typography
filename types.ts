@@ -4,6 +4,7 @@ export interface SmartTypographySettings {
   ellipsis: boolean;
   arrows: boolean;
   guillemets: boolean;
+  comparisons: boolean;
 
   openSingle: string;
   closeSingle: string;
@@ -11,4 +12,7 @@ export interface SmartTypographySettings {
   closeDouble: string;
   leftArrow: string;
   rightArrow: string;
+  lessThanOrEqualTo: string;
+  greaterThanOrEqualTo: string;
+  notEqualTo: string;
 }
