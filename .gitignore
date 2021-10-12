@@ -13,6 +13,7 @@ package-lock.json
 data.json
 .DS_Store
 main.js
+.hotreload
 
-#history
+# history
 .history

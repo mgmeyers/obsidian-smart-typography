@@ -226,7 +226,7 @@ export const greaterThanOrEqualTo: InputRule = {
     ]);
   },
   performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === settings.rightArrow) {
+    if (instance.getRange(delta.from, delta.to) === settings.greaterThanOrEqualTo) {
       delta.update(delta.from, delta.to, [">="]);
     }
   },
@@ -241,7 +241,7 @@ export const lessThanOrEqualTo: InputRule = {
     ]);
   },
   performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === settings.leftArrow) {
+    if (instance.getRange(delta.from, delta.to) === settings.lessThanOrEqualTo) {
       delta.update(delta.from, delta.to, ["<="]);
     }
   },
@@ -256,7 +256,7 @@ export const notEqualTo: InputRule = {
     ]);
   },
   performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === settings.leftArrow) {
+    if (instance.getRange(delta.from, delta.to) === settings.notEqualTo) {
       delta.update(delta.from, delta.to, ["/="]);
     }
   },
