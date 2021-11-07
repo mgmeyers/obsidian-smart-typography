@@ -112,7 +112,7 @@ export const pairedDoubleQuote: InputRule = {
     ]);
   },
   performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === settings.closeDouble) {
+    if (instance.getRange(delta.from, delta.to) === settings.openDouble) {
       delta.update(delta.from, { ...delta.to, ch: delta.to.ch + 1 }, ['""']);
       setTimeout(() =>
         instance.setCursor({ ...delta.from, ch: delta.from.ch + 1 })
@@ -167,7 +167,7 @@ export const pairedSingleQuote: InputRule = {
     ]);
   },
   performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === settings.closeSingle) {
+    if (instance.getRange(delta.from, delta.to) === settings.openSingle) {
       delta.update(delta.from, { ...delta.to, ch: delta.to.ch + 1 }, ["''"]);
       setTimeout(() =>
         instance.setCursor({ ...delta.from, ch: delta.from.ch + 1 })
@@ -226,7 +226,9 @@ export const greaterThanOrEqualTo: InputRule = {
     ]);
   },
   performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === settings.greaterThanOrEqualTo) {
+    if (
+      instance.getRange(delta.from, delta.to) === settings.greaterThanOrEqualTo
+    ) {
       delta.update(delta.from, delta.to, [">="]);
     }
   },
@@ -241,7 +243,9 @@ export const lessThanOrEqualTo: InputRule = {
     ]);
   },
   performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === settings.lessThanOrEqualTo) {
+    if (
+      instance.getRange(delta.from, delta.to) === settings.lessThanOrEqualTo
+    ) {
       delta.update(delta.from, delta.to, ["<="]);
     }
   },
