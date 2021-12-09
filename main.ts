@@ -18,6 +18,7 @@ const DEFAULT_SETTINGS: SmartTypographySettings = {
   arrows: true,
   guillemets: false,
   comparisons: true,
+  fractions: true,
 
   openSingle: "‘",
   closeSingle: "’",
@@ -66,6 +67,9 @@ export default class SmartTypography extends Plugin {
     }
     if (this.settings.comparisons) {
       this.inputRules.push(...comparisonRules);
+    }
+    if (this.settings.fractions) {
+      this.inputRules.push(...fractionRules);
     }
   }
 
@@ -405,7 +409,7 @@ class SmartTypographySettingTab extends PluginSettingTab {
         toggle
           .setValue(this.plugin.settings.comparisons)
           .onChange(async (value) => {
-            this.plugin.settings.comparisons = value;
+            this.plugin.settings.fractions = value;
             await this.plugin.saveSettings();
           });
       });

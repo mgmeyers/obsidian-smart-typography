@@ -9,6 +9,9 @@ This plugin (currently) converts:
 - `<-` to `←` (customizable)
 - `<<` to `«`
 - `>>` to `»`
+- `1/2` to `½`
+- `1/4` to `¼`
+- `3/4` to `¾`
 - Two dashes (`--`) to – - en-dash
 - En-dash + dash (`–-`) to — - em-dash
 - Em-dash + dash (`—-`) to `---` - three dashes
