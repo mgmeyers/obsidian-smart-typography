@@ -38,6 +38,8 @@ const DEFAULT_SETTINGS: SmartTypographySettings = {
   vulgarFractionThreeQuarters: "¾"
 };
 
+/* adding comment to stimulate recompilation */
+
 export default class SmartTypography extends Plugin {
   settings: SmartTypographySettings;
   inputRules: InputRule[];
