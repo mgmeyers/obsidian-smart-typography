@@ -1,4 +1,5 @@
 export interface SmartTypographySettings {
+  fractions: boolean;
   curlyQuotes: boolean;
   emDash: boolean;
   ellipsis: boolean;
