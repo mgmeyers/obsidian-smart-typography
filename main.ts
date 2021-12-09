@@ -397,6 +397,18 @@ class SmartTypographySettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           });
       });
+
+      new Setting(containerEl)
+      .setName("Fractions")
+      .setDesc("1/2, 1/4, 3/4 will be converted to ½,¼,¾")
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.comparisons)
+          .onChange(async (value) => {
+            this.plugin.settings.comparisons = value;
+            await this.plugin.saveSettings();
+          });
+      });
   }
 }
 
