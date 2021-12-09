@@ -296,6 +296,50 @@ export const leftGuillemet: InputRule = {
   },
 };
 
+export const vulgarFractionHalf: InputRule = {
+  matchTrigger: "2",
+  matchRegExp: /1\/2$/,
+  performUpdate: (instance, delta, settings) => {
+    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
+      "½",
+    ]);
+  },
+  performRevert: (instance, delta, settings) => {
+    if (instance.getRange(delta.from, delta.to) === "½") {
+      delta.update(delta.from, delta.to, ["1/2"]);
+    }
+  },
+};
+
+export const vulgarFactionOneQuarter: InputRule = {
+  matchTrigger: "4",
+  matchRegExp: /1\/4$/,
+  performUpdate: (instance, delta, settings) => {
+    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
+      "¼",
+    ]);
+  },
+  performRevert: (instance, delta, settings) => {
+    if (instance.getRange(delta.from, delta.to) === "¼") {
+      delta.update(delta.from, delta.to, ["1/4"]);
+    }
+  },
+};
+
+export const vulgarFractionThreeQuarters: InputRule = {
+  matchTrigger: "4",
+  matchRegExp: /3\/4$/,
+  performUpdate: (instance, delta, settings) => {
+    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
+      "¾",
+    ]);
+  },
+  performRevert: (instance, delta, settings) => {
+    if (instance.getRange(delta.from, delta.to) === "¾") {
+      delta.update(delta.from, delta.to, ["3/4"]);
+    }
+  },
+};
 export const dashRules = [enDash, emDash, trippleDash];
 export const ellipsisRules = [ellipsis];
 export const smartQuoteRules = [
@@ -315,3 +359,10 @@ export const comparisonRules = [
 ];
 export const arrowRules = [leftArrow, rightArrow];
 export const guillemetRules = [leftGuillemet, rightGuillemet];
+
+export const fractionRules = [
+  vulgarFractionHalf,
+  vulgarFactionOneQuarter,
+  vulgarFractionThreeQuarters,
+];
+

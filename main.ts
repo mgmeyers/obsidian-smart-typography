@@ -6,6 +6,7 @@ import {
   smartQuoteRules,
   guillemetRules,
   comparisonRules,
+  fractionRules,
 } from "inputRules";
 import { App, Plugin, PluginSettingTab, Setting } from "obsidian";
 import { SmartTypographySettings } from "types";
@@ -30,6 +31,10 @@ const DEFAULT_SETTINGS: SmartTypographySettings = {
   lessThanOrEqualTo: "≤",
   greaterThanOrEqualTo: "≥",
   notEqualTo: "≠",
+
+  vulgarFractionOneQuarter: "¼",
+  vulgarFractionHalf: "½",
+  vulgarFractionThreeQuarters: "¾"
 };
 
 export default class SmartTypography extends Plugin {

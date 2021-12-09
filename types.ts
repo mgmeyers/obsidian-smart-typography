@@ -15,4 +15,7 @@ export interface SmartTypographySettings {
   lessThanOrEqualTo: string;
   greaterThanOrEqualTo: string;
   notEqualTo: string;
+  vulgarFractionOneQuarter: string;
+  vulgarFractionHalf: string;
+  vulgarFractionThreeQuarters: string;
 }
