@@ -187,11 +187,17 @@ export default class SmartTypography extends Plugin {
         }
 
         if (tr.docChanged) {
+          // TODO: don't do anything if we're in codeblocks, etc
+          // syntaxTree(tr.state).resolve(pos) will tell provide the info we need
+          // to do this
+
           const changes: ChangeSpec[] = [];
 
           tr.changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
             // Handle wrapped empty double quote as an initial proof-of-concept
             // TODO: Is this the right way to override the inserted text?
+            //       Also, to handle a single double quote, we'll need to check
+            //       the character before or after
             if (inserted.sliceString(0, 0 + inserted.length) === '""') {
               changes.push({ from: fromB, to: toB, insert: "“”" });
             }
