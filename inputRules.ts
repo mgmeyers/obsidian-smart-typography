@@ -300,7 +300,7 @@ export const vulgarFractionHalf: InputRule = {
   matchTrigger: "2",
   matchRegExp: /1\/2$/,
   performUpdate: (instance, delta, settings) => {
-    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
+    delta.update({ line: delta.from.line, ch: delta.from.ch - 2 }, delta.to, [
       "½",
     ]);
   },
@@ -315,7 +315,7 @@ export const vulgarFactionOneQuarter: InputRule = {
   matchTrigger: "4",
   matchRegExp: /1\/4$/,
   performUpdate: (instance, delta, settings) => {
-    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
+    delta.update({ line: delta.from.line, ch: delta.from.ch - 2 }, delta.to, [
       "¼",
     ]);
   },
@@ -330,7 +330,7 @@ export const vulgarFractionThreeQuarters: InputRule = {
   matchTrigger: "4",
   matchRegExp: /3\/4$/,
   performUpdate: (instance, delta, settings) => {
-    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
+    delta.update({ line: delta.from.line, ch: delta.from.ch - 2 }, delta.to, [
       "¾",
     ]);
   },
