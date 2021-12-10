@@ -8,6 +8,15 @@ import {
   comparisonRules,
 } from "inputRules";
 import { App, Plugin, PluginSettingTab, Setting } from "obsidian";
+import {
+  ChangeSet,
+  ChangeSpec,
+  EditorState,
+  StateEffect,
+  StateField,
+  Transaction,
+} from "@codemirror/state";
+import { syntaxTree } from "@codemirror/language";
 import { SmartTypographySettings } from "types";
 
 const DEFAULT_SETTINGS: SmartTypographySettings = {
@@ -143,10 +152,77 @@ export default class SmartTypography extends Plugin {
 
     this.addSettingTab(new SmartTypographySettingTab(this.app, this));
 
-    this.app.workspace.onLayoutReady(() => {
-      this.registerCodeMirror((cm: CodeMirror.Editor) => {
-        cm.on("beforeChange", this.beforeChangeHandler);
-      });
+    // Codemirror 6
+    //
+    // When smart typography overrides changes, we want to keep a record
+    // so we can undo them when the user presses backspace
+    const storeTransaction = StateEffect.define<Transaction>();
+    const prevTransactionState = StateField.define<Transaction | null>({
+      create() {
+        return null;
+      },
+      update(value, tr) {
+        for (let e of tr.effects) {
+          if (e.is(storeTransaction)) {
+            console.log("storing transaction");
+            return e.value;
+          }
+        }
+
+        if (value) {
+          console.log("clearing stored transaction");
+        }
+
+        return null;
+      },
+    });
+
+    this.registerEditorExtension([
+      prevTransactionState,
+      EditorState.transactionFilter.of((tr) => {
+        if (tr.isUserEvent("delete.backward")) {
+          // TODO: On backspace, revert the last change made, if there is one.
+
+          return tr;
+        }
+
+        if (tr.docChanged) {
+          const changes: ChangeSpec[] = [];
+
+          tr.changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
+            // Handle wrapped empty double quote as an initial proof-of-concept
+            // TODO: Is this the right way to override the inserted text?
+            if (inserted.sliceString(0, 0 + inserted.length) === '""') {
+              changes.push({ from: fromB, to: toB, insert: "“”" });
+            }
+          }, false);
+
+          if (changes.length) {
+            // TODO:
+            //   - This doesn't transfer annotations or other data from the transaction,
+            //     is there a better way to do this?
+            //   - How do we save the original changes and dispatch the storeTransaction 
+            //     effect above. Do we append it to tr.effects?
+            return [
+              {
+                effects: tr.effects,
+                selection: tr.selection,
+                scrollIntoView: tr.scrollIntoView,
+                changes: tr.changes.compose(
+                  ChangeSet.of(changes, tr.newDoc.length)
+                ),
+              },
+            ];
+          }
+        }
+
+        return tr;
+      }),
+    ]);
+
+    // Codemirror 5
+    this.registerCodeMirror((cm: CodeMirror.Editor) => {
+      cm.on("beforeChange", this.beforeChangeHandler);
     });
   }
 
