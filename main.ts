@@ -182,7 +182,7 @@ export default class SmartTypography extends Plugin {
       EditorState.transactionFilter.of((tr) => {
         if (tr.isUserEvent("delete.backward")) {
           // TODO: On backspace, revert the last change made, if there is one.
-
+          //       In theory, the necessary data will be stored in prevTransactionState
           return tr;
         }
 
