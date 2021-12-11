@@ -1,317 +1,396 @@
 import { SmartTypographySettings } from "types";
-
-export interface InputRule {
-  matchTrigger: string | RegExp;
-  matchRegExp: RegExp | false;
-  performUpdate: (
-    instance: CodeMirror.Editor,
-    delta: CodeMirror.EditorChangeCancellable,
-    settings: SmartTypographySettings
-  ) => void;
-  performRevert:
-    | ((
-        instance: CodeMirror.Editor,
-        delta: CodeMirror.EditorChangeCancellable,
-        settings: SmartTypographySettings
-      ) => void)
-    | false;
-}
+import { ChangeSpec, Transaction } from "@codemirror/state";
 
 const dashChar = "-";
 const enDashChar = "–";
 const emDashChar = "—";
 
+interface InputRuleParams {
+  registerChange: (change: ChangeSpec, revert: ChangeSpec) => void;
+  adjustSelection: (adjustment: number) => void;
+  tr: Transaction;
+  settings: SmartTypographySettings;
+  from: number;
+  to: number;
+}
+
+export interface InputRule {
+  trigger: string;
+  shouldReplace: (tr: Transaction, from: number, to: number) => boolean;
+  replace: (params: InputRuleParams) => void;
+}
+
+// Dashes
+
 export const enDash: InputRule = {
-  matchTrigger: dashChar,
-  matchRegExp: /--$/, // dash, dash
-  performUpdate: (instance, delta, settings) => {
-    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
-      enDashChar,
-    ]);
+  trigger: dashChar,
+  shouldReplace: (tr: Transaction, from: number, to: number) => {
+    const prev = tr.newDoc.sliceString(from - 1, to - 1);
+    return prev === dashChar;
   },
-  performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === enDashChar) {
-      delta.update(delta.from, delta.to, [dashChar + dashChar]);
-    }
+  replace: ({ registerChange, adjustSelection, from, to }: InputRuleParams) => {
+    registerChange(
+      { from: from - 1, to: to, insert: enDashChar },
+      {
+        from: from - 1,
+        to: to - 1,
+        insert: dashChar + dashChar,
+      }
+    );
+
+    adjustSelection(-1);
   },
 };
 
 export const emDash: InputRule = {
-  matchTrigger: dashChar,
-  matchRegExp: /–-$/, // en-dash, dash
-  performUpdate: (instance, delta, settings) => {
-    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
-      emDashChar,
-    ]);
+  trigger: dashChar,
+  shouldReplace: (tr: Transaction, from: number, to: number) => {
+    const prev = tr.newDoc.sliceString(from - 1, to - 1);
+    return prev === enDashChar;
   },
-  performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === emDashChar) {
-      delta.update(delta.from, delta.to, [enDashChar + dashChar]);
-    }
+  replace: ({ registerChange, adjustSelection, from, to }: InputRuleParams) => {
+    registerChange(
+      { from: from - 1, to: to, insert: emDashChar },
+      {
+        from: from - 1,
+        to: to - 1,
+        insert: enDashChar + dashChar,
+      }
+    );
+
+    adjustSelection(-1);
   },
 };
 
 export const trippleDash: InputRule = {
-  matchTrigger: dashChar,
-  matchRegExp: /—-$/, // em-dash, dash
-  performUpdate: (instance, delta, settings) => {
-    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
-      dashChar + dashChar + dashChar,
-    ]);
+  trigger: dashChar,
+  shouldReplace: (tr: Transaction, from: number, to: number) => {
+    const prev = tr.newDoc.sliceString(from - 1, to - 1);
+    return prev === emDashChar;
   },
-  performRevert: (instance, delta, settings) => {},
+  replace: ({ registerChange, adjustSelection, from, to }: InputRuleParams) => {
+    registerChange(
+      { from: from - 1, to: to, insert: dashChar + dashChar + dashChar },
+      {
+        from: from - 1,
+        to: to + 1,
+        insert: emDashChar + dashChar,
+      }
+    );
+
+    adjustSelection(1);
+  },
 };
+
+export const dashRules = [enDash, emDash, trippleDash];
+
+// Ellipsis
 
 export const ellipsis: InputRule = {
-  matchTrigger: ".",
-  matchRegExp: /\.\.\.$/,
-  performUpdate: (instance, delta, settings) => {
-    delta.update({ line: delta.from.line, ch: delta.from.ch - 2 }, delta.to, [
-      "…",
-    ]);
+  trigger: ".",
+  shouldReplace: (tr: Transaction, from: number, to: number) => {
+    const prev = tr.newDoc.sliceString(from - 2, to - 1);
+    console.log(prev);
+    return prev === "..";
   },
-  performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === "…") {
-      delta.update(delta.from, delta.to, ["..."]);
-    }
+  replace: ({ registerChange, adjustSelection, from, to }: InputRuleParams) => {
+    registerChange(
+      { from: from - 2, to: to, insert: "…" },
+      {
+        from: from - 2,
+        to: to - 2,
+        insert: "...",
+      }
+    );
+
+    adjustSelection(-2);
   },
 };
 
-export const openDoubleQuote: InputRule = {
-  matchTrigger: '"',
-  matchRegExp: /(?:^|[\s\{\[\(\<'"\u2018\u201C])(")$/,
-  performUpdate: (instance, delta, settings) => {
-    delta.update(delta.from, delta.to, [settings.openDouble]);
-  },
-  performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === settings.openDouble) {
-      delta.update(delta.from, delta.to, ['"']);
-    }
-  },
-};
+export const ellipsisRules = [ellipsis];
 
-export const closeDoubleQuote: InputRule = {
-  matchTrigger: '"',
-  matchRegExp: /"$/,
-  performUpdate: (instance, delta, settings) => {
-    delta.update(delta.from, delta.to, [settings.closeDouble]);
+// Quotes
+export const doubleQuote: InputRule = {
+  trigger: '"',
+  shouldReplace: (tr: Transaction, from: number, to: number) => {
+    return true;
   },
-  performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === settings.closeDouble) {
-      delta.update(delta.from, delta.to, ['"']);
+  replace: ({ tr, registerChange, settings, from, to }: InputRuleParams) => {
+    const prev = tr.newDoc.sliceString(from - 1, to - 1);
+
+    if (prev.length === 0 || /[\s\{\[\(\<'"\u2018\u201C]$/.test(prev)) {
+      registerChange(
+        {
+          from: from,
+          to: to,
+          insert: settings.openDouble,
+        },
+        { from: from, to: to, insert: '"' }
+      );
+    } else {
+      registerChange(
+        {
+          from: from,
+          to: to,
+          insert: settings.closeDouble,
+        },
+        { from: from, to: to, insert: '"' }
+      );
     }
   },
 };
 
 export const pairedDoubleQuote: InputRule = {
-  matchTrigger: '""',
-  matchRegExp: /""$/,
-  performUpdate: (instance, delta, settings) => {
-    delta.update(delta.from, delta.to, [
-      settings.openDouble + settings.closeDouble,
-    ]);
+  trigger: '""',
+  shouldReplace: (tr: Transaction, from: number, to: number) => {
+    return true;
   },
-  performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === settings.openDouble) {
-      delta.update(delta.from, { ...delta.to, ch: delta.to.ch + 1 }, ['""']);
-      setTimeout(() =>
-        instance.setCursor({ ...delta.from, ch: delta.from.ch + 1 })
+  replace: ({ tr, registerChange, settings, from, to }: InputRuleParams) => {
+    registerChange(
+      {
+        from: from,
+        to: to,
+        insert: settings.openDouble + settings.closeDouble,
+      },
+      { from: from, to: to, insert: '""' }
+    );
+  },
+};
+
+export const singleQuote: InputRule = {
+  trigger: "'",
+  shouldReplace: (tr: Transaction, from: number, to: number) => {
+    return true;
+  },
+  replace: ({ tr, registerChange, settings, from, to }: InputRuleParams) => {
+    const prev = tr.newDoc.sliceString(from - 1, to - 1);
+
+    if (prev.length === 0 || /[\s\{\[\(\<'"\u2018\u201C]$/.test(prev)) {
+      registerChange(
+        {
+          from: from,
+          to: to,
+          insert: settings.openSingle,
+        },
+        { from: from, to: to, insert: "'" }
       );
-    }
-  },
-};
-
-export const wrappedDoubleQuote: InputRule = {
-  matchTrigger: /^".*"$/,
-  matchRegExp: false,
-  performUpdate: (instance, delta, settings) => {
-    delta.update(delta.from, delta.to, [
-      settings.openDouble + delta.text[0].slice(1, -1) + settings.closeDouble,
-    ]);
-  },
-  performRevert: false,
-};
-
-export const openSingleQuote: InputRule = {
-  matchTrigger: "'",
-  matchRegExp: /(?:^|[\s\{\[\(\<'"\u2018\u201C])(')$/,
-  performUpdate: (instance, delta, settings) => {
-    delta.update(delta.from, delta.to, [settings.openSingle]);
-  },
-  performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === settings.openSingle) {
-      delta.update(delta.from, delta.to, ["'"]);
-    }
-  },
-};
-
-export const closeSingleQuote: InputRule = {
-  matchTrigger: "'",
-  matchRegExp: /'$/,
-  performUpdate: (instance, delta, settings) => {
-    delta.update(delta.from, delta.to, [settings.closeSingle]);
-  },
-  performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === settings.closeSingle) {
-      delta.update(delta.from, delta.to, ["'"]);
+    } else {
+      registerChange(
+        {
+          from: from,
+          to: to,
+          insert: settings.closeSingle,
+        },
+        { from: from, to: to, insert: "'" }
+      );
     }
   },
 };
 
 export const pairedSingleQuote: InputRule = {
-  matchTrigger: "''",
-  matchRegExp: /''$/,
-  performUpdate: (instance, delta, settings) => {
-    delta.update(delta.from, delta.to, [
-      settings.openSingle + settings.closeSingle,
-    ]);
+  trigger: "''",
+  shouldReplace: (tr: Transaction, from: number, to: number) => {
+    return true;
   },
-  performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === settings.openSingle) {
-      delta.update(delta.from, { ...delta.to, ch: delta.to.ch + 1 }, ["''"]);
-      setTimeout(() =>
-        instance.setCursor({ ...delta.from, ch: delta.from.ch + 1 })
-      );
-    }
+  replace: ({ tr, registerChange, settings, from, to }: InputRuleParams) => {
+    registerChange(
+      {
+        from: from,
+        to: to,
+        insert: settings.openSingle + settings.closeSingle,
+      },
+      { from: from, to: to, insert: "''" }
+    );
   },
 };
 
-export const wrappedSingleQuote: InputRule = {
-  matchTrigger: /^'.*'$/,
-  matchRegExp: false,
-  performUpdate: (instance, delta, settings) => {
-    delta.update(delta.from, delta.to, [
-      settings.openSingle + delta.text[0].slice(1, -1) + settings.closeSingle,
-    ]);
+export const smartQuoteRules = [
+  doubleQuote,
+  pairedDoubleQuote,
+  singleQuote,
+  pairedSingleQuote,
+];
+
+// Arrows
+
+export const leftArrow: InputRule = {
+  trigger: dashChar,
+  shouldReplace: (tr: Transaction, from: number, to: number) => {
+    const prev = tr.newDoc.sliceString(from - 1, to - 1);
+    return prev === "<";
   },
-  performRevert: false,
+  replace: ({
+    settings,
+    registerChange,
+    adjustSelection,
+    from,
+    to,
+  }: InputRuleParams) => {
+    registerChange(
+      { from: from - 1, to: to, insert: settings.leftArrow },
+      {
+        from: from - 1,
+        to: to - 1,
+        insert: "<" + dashChar,
+      }
+    );
+
+    adjustSelection(-1);
+  },
 };
 
 export const rightArrow: InputRule = {
-  matchTrigger: ">",
-  matchRegExp: /->$/,
-  performUpdate: (instance, delta, settings) => {
-    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
-      settings.rightArrow,
-    ]);
+  trigger: ">",
+  shouldReplace: (tr: Transaction, from: number, to: number) => {
+    const prev = tr.newDoc.sliceString(from - 1, to - 1);
+    return prev === dashChar;
   },
-  performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === settings.rightArrow) {
-      delta.update(delta.from, delta.to, ["->"]);
-    }
+  replace: ({
+    settings,
+    registerChange,
+    adjustSelection,
+    from,
+    to,
+  }: InputRuleParams) => {
+    registerChange(
+      { from: from - 1, to: to, insert: settings.rightArrow },
+      {
+        from: from - 1,
+        to: to - 1,
+        insert: dashChar + ">",
+      }
+    );
+
+    adjustSelection(-1);
   },
 };
 
-export const leftArrow: InputRule = {
-  matchTrigger: "-",
-  matchRegExp: /<-$/,
-  performUpdate: (instance, delta, settings) => {
-    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
-      settings.leftArrow,
-    ]);
-  },
-  performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === settings.leftArrow) {
-      delta.update(delta.from, delta.to, ["<-"]);
-    }
-  },
-};
+export const arrowRules = [leftArrow, rightArrow];
 
-export const greaterThanOrEqualTo: InputRule = {
-  matchTrigger: "=",
-  matchRegExp: />=$/,
-  performUpdate: (instance, delta, settings) => {
-    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
-      settings.greaterThanOrEqualTo,
-    ]);
-  },
-  performRevert: (instance, delta, settings) => {
-    if (
-      instance.getRange(delta.from, delta.to) === settings.greaterThanOrEqualTo
-    ) {
-      delta.update(delta.from, delta.to, [">="]);
-    }
-  },
-};
+// Guillemet
 
-export const lessThanOrEqualTo: InputRule = {
-  matchTrigger: "=",
-  matchRegExp: /<=$/,
-  performUpdate: (instance, delta, settings) => {
-    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
-      settings.lessThanOrEqualTo,
-    ]);
+export const leftGuillemet: InputRule = {
+  trigger: "<",
+  shouldReplace: (tr: Transaction, from: number, to: number) => {
+    const prev = tr.newDoc.sliceString(from - 1, to - 1);
+    return prev === "<";
   },
-  performRevert: (instance, delta, settings) => {
-    if (
-      instance.getRange(delta.from, delta.to) === settings.lessThanOrEqualTo
-    ) {
-      delta.update(delta.from, delta.to, ["<="]);
-    }
-  },
-};
+  replace: ({ registerChange, adjustSelection, from, to }: InputRuleParams) => {
+    registerChange(
+      { from: from - 1, to: to, insert: "«" },
+      {
+        from: from - 1,
+        to: to - 1,
+        insert: "<<",
+      }
+    );
 
-export const notEqualTo: InputRule = {
-  matchTrigger: "=",
-  matchRegExp: /\/=$/,
-  performUpdate: (instance, delta, settings) => {
-    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
-      settings.notEqualTo,
-    ]);
-  },
-  performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === settings.notEqualTo) {
-      delta.update(delta.from, delta.to, ["/="]);
-    }
+    adjustSelection(-1);
   },
 };
 
 export const rightGuillemet: InputRule = {
-  matchTrigger: ">",
-  matchRegExp: />>$/,
-  performUpdate: (instance, delta, settings) => {
-    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
-      "»",
-    ]);
+  trigger: ">",
+  shouldReplace: (tr: Transaction, from: number, to: number) => {
+    const prev = tr.newDoc.sliceString(from - 1, to - 1);
+    return prev === ">";
   },
-  performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === "»") {
-      delta.update(delta.from, delta.to, [">>"]);
-    }
+  replace: ({ registerChange, adjustSelection, from, to }: InputRuleParams) => {
+    registerChange(
+      { from: from - 1, to: to, insert: "»" },
+      {
+        from: from - 1,
+        to: to - 1,
+        insert: ">>",
+      }
+    );
+
+    adjustSelection(-1);
   },
 };
 
-export const leftGuillemet: InputRule = {
-  matchTrigger: "<",
-  matchRegExp: /<<$/,
-  performUpdate: (instance, delta, settings) => {
-    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
-      "«",
-    ]);
+export const guillemetRules = [leftGuillemet, rightGuillemet];
+
+export const greaterThanOrEqualTo: InputRule = {
+  trigger: "=",
+  shouldReplace: (tr: Transaction, from: number, to: number) => {
+    const prev = tr.newDoc.sliceString(from - 1, to - 1);
+    return prev === ">";
   },
-  performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === "«") {
-      delta.update(delta.from, delta.to, ["<<"]);
-    }
+  replace: ({
+    settings,
+    registerChange,
+    adjustSelection,
+    from,
+    to,
+  }: InputRuleParams) => {
+    registerChange(
+      { from: from - 1, to: to, insert: settings.greaterThanOrEqualTo },
+      {
+        from: from - 1,
+        to: to - 1,
+        insert: ">=",
+      }
+    );
+
+    adjustSelection(-1);
   },
 };
 
-export const dashRules = [enDash, emDash, trippleDash];
-export const ellipsisRules = [ellipsis];
-export const smartQuoteRules = [
-  openDoubleQuote,
-  closeDoubleQuote,
-  pairedDoubleQuote,
-  wrappedDoubleQuote,
-  openSingleQuote,
-  closeSingleQuote,
-  pairedSingleQuote,
-  wrappedSingleQuote,
-];
+export const lessThanOrEqualTo: InputRule = {
+  trigger: "=",
+  shouldReplace: (tr: Transaction, from: number, to: number) => {
+    const prev = tr.newDoc.sliceString(from - 1, to - 1);
+    return prev === "<";
+  },
+  replace: ({
+    settings,
+    registerChange,
+    adjustSelection,
+    from,
+    to,
+  }: InputRuleParams) => {
+    registerChange(
+      { from: from - 1, to: to, insert: settings.lessThanOrEqualTo },
+      {
+        from: from - 1,
+        to: to - 1,
+        insert: "<=",
+      }
+    );
+
+    adjustSelection(-1);
+  },
+};
+
+export const notEqualTo: InputRule = {
+  trigger: "=",
+  shouldReplace: (tr: Transaction, from: number, to: number) => {
+    const prev = tr.newDoc.sliceString(from - 1, to - 1);
+    return prev === "/";
+  },
+  replace: ({
+    settings,
+    registerChange,
+    adjustSelection,
+    from,
+    to,
+  }: InputRuleParams) => {
+    registerChange(
+      { from: from - 1, to: to, insert: settings.notEqualTo },
+      {
+        from: from - 1,
+        to: to - 1,
+        insert: "/=",
+      }
+    );
+
+    adjustSelection(-1);
+  },
+};
+
 export const comparisonRules = [
   lessThanOrEqualTo,
   greaterThanOrEqualTo,
   notEqualTo,
 ];
-export const arrowRules = [leftArrow, rightArrow];
-export const guillemetRules = [leftGuillemet, rightGuillemet];

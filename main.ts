@@ -1,23 +1,34 @@
 import {
-  arrowRules,
-  ellipsisRules,
-  dashRules,
-  InputRule,
-  smartQuoteRules,
-  guillemetRules,
-  comparisonRules,
-} from "inputRules";
+  legacyArrowRules,
+  legacyEllipsisRules,
+  legacyDashRules,
+  LegacyInputRule,
+  legacySmartQuoteRules,
+  legacyGuillemetRules,
+  legacyComparisonRules,
+} from "legacyInputRules";
 import { App, Plugin, PluginSettingTab, Setting } from "obsidian";
 import {
   ChangeSet,
   ChangeSpec,
+  EditorSelection,
   EditorState,
   StateEffect,
   StateField,
-  Transaction,
+  TransactionSpec,
 } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import { SmartTypographySettings } from "types";
+import { Tree } from "@lezer/common";
+import {
+  arrowRules,
+  comparisonRules,
+  dashRules,
+  ellipsisRules,
+  guillemetRules,
+  InputRule,
+  smartQuoteRules,
+} from "inputRules";
 
 const DEFAULT_SETTINGS: SmartTypographySettings = {
   curlyQuotes: true,
@@ -44,109 +55,46 @@ const DEFAULT_SETTINGS: SmartTypographySettings = {
 export default class SmartTypography extends Plugin {
   settings: SmartTypographySettings;
   inputRules: InputRule[];
-  lastUpdate: WeakMap<CodeMirror.Editor, InputRule>;
+
+  legacyInputRules: LegacyInputRule[];
+  legacyLastUpdate: WeakMap<CodeMirror.Editor, LegacyInputRule>;
 
   buildInputRules() {
+    this.legacyInputRules = [];
     this.inputRules = [];
 
     if (this.settings.emDash) {
       this.inputRules.push(...dashRules);
+      this.legacyInputRules.push(...legacyDashRules);
     }
 
     if (this.settings.ellipsis) {
       this.inputRules.push(...ellipsisRules);
+      this.legacyInputRules.push(...legacyEllipsisRules);
     }
 
     if (this.settings.curlyQuotes) {
       this.inputRules.push(...smartQuoteRules);
+      this.legacyInputRules.push(...legacySmartQuoteRules);
     }
 
     if (this.settings.arrows) {
       this.inputRules.push(...arrowRules);
+      this.legacyInputRules.push(...legacyArrowRules);
     }
 
     if (this.settings.guillemets) {
       this.inputRules.push(...guillemetRules);
+      this.legacyInputRules.push(...legacyGuillemetRules);
     }
     if (this.settings.comparisons) {
       this.inputRules.push(...comparisonRules);
+      this.legacyInputRules.push(...legacyComparisonRules);
     }
   }
 
-  beforeChangeHandler = (
-    instance: CodeMirror.Editor,
-    delta: CodeMirror.EditorChangeCancellable
-  ) => {
-    if (this.lastUpdate.has(instance) && delta.origin === "+delete") {
-      const revert = this.lastUpdate.get(instance).performRevert;
-
-      if (revert) {
-        revert(instance, delta, this.settings);
-        this.lastUpdate.delete(instance);
-      }
-      return;
-    }
-
-    if (delta.origin === undefined && delta.text.length === 1) {
-      const input = delta.text[0];
-
-      for (let rule of this.inputRules) {
-        if (!(rule.matchTrigger instanceof RegExp)) {
-          continue;
-        }
-
-        if (rule.matchTrigger.test(input)) {
-          rule.performUpdate(instance, delta, this.settings);
-          return;
-        }
-      }
-
-      return;
-    }
-
-    if (delta.origin === "+input" && delta.text.length === 1) {
-      const input = delta.text[0];
-      const rules = this.inputRules.filter((r) => {
-        return typeof r.matchTrigger === "string" && r.matchTrigger === input;
-      });
-
-      if (rules.length === 0) {
-        if (this.lastUpdate.has(instance)) {
-          this.lastUpdate.delete(instance);
-        }
-        return;
-      }
-
-      let str = input;
-
-      if (delta.to.ch > 0) {
-        str = `${instance.getRange(
-          { line: delta.to.line, ch: 0 },
-          delta.to
-        )}${str}`;
-      }
-
-      for (let rule of rules) {
-        if (rule.matchRegExp && rule.matchRegExp.test(str)) {
-          if (
-            shouldCheckTextAtPos(instance, delta.from) &&
-            shouldCheckTextAtPos(instance, delta.to)
-          ) {
-            this.lastUpdate.set(instance, rule);
-            rule.performUpdate(instance, delta, this.settings);
-          }
-          return;
-        }
-      }
-    }
-
-    if (this.lastUpdate.has(instance)) {
-      this.lastUpdate.delete(instance);
-    }
-  };
-
   async onload() {
-    this.lastUpdate = new WeakMap();
+    this.legacyLastUpdate = new WeakMap();
 
     await this.loadSettings();
 
@@ -156,21 +104,14 @@ export default class SmartTypography extends Plugin {
     //
     // When smart typography overrides changes, we want to keep a record
     // so we can undo them when the user presses backspace
-    const storeTransaction = StateEffect.define<Transaction>();
-    const prevTransactionState = StateField.define<Transaction | null>({
+    const storeTransaction = StateEffect.define<TransactionSpec>();
+    const prevTransactionState = StateField.define<TransactionSpec | null>({
       create() {
         return null;
       },
-      update(value, tr) {
+      update(_, tr) {
         for (let e of tr.effects) {
-          if (e.is(storeTransaction)) {
-            console.log("storing transaction");
-            return e.value;
-          }
-        }
-
-        if (value) {
-          console.log("clearing stored transaction");
+          if (e.is(storeTransaction)) return e.value;
         }
 
         return null;
@@ -181,38 +122,87 @@ export default class SmartTypography extends Plugin {
       prevTransactionState,
       EditorState.transactionFilter.of((tr) => {
         if (tr.isUserEvent("delete.backward")) {
-          // TODO: On backspace, revert the last change made, if there is one.
-          //       In theory, the necessary data will be stored in prevTransactionState
-          return tr;
+          return tr.startState.field(prevTransactionState, false) || tr;
         }
 
         if (tr.docChanged) {
-          // TODO: don't do anything if we're in codeblocks, etc
-          // syntaxTree(tr.state).resolve(pos) will tell provide the info we need
-          // to do this
-
           const changes: ChangeSpec[] = [];
+          const reverts: ChangeSpec[] = [];
+          const seenPositions: Record<number, boolean> = {};
 
-          tr.changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
-            // Handle wrapped empty double quote as an initial proof-of-concept
-            // TODO: Is this the right way to override the inserted text?
-            //       Also, to handle a single double quote, we'll need to check
-            //       the character before or after
-            if (inserted.sliceString(0, 0 + inserted.length) === '""') {
-              changes.push({ from: fromB, to: toB, insert: "“”" });
+          let selection = tr.selection;
+          let tree: Tree = null;
+
+          function getTree() {
+            if (!tree) {
+              tree = syntaxTree(tr.startState);
+            }
+
+            return tree;
+          }
+
+          function canPerformReplacement(pos: number) {
+            if (seenPositions[pos] !== undefined) {
+              return seenPositions[pos];
+            }
+
+            const nodeLeft = getTree().resolve(pos, -1);
+            const nodeRight = getTree().resolve(pos, 1);
+
+            if (
+              ignoreListRegEx.test(nodeLeft.type.name) ||
+              ignoreListRegEx.test(nodeRight.type.name)
+            ) {
+              seenPositions[pos] = false;
+            } else {
+              seenPositions[pos] = true;
+            }
+
+            return seenPositions[pos];
+          }
+
+          function adjustSelection(adjustment: number) {
+            const ranges = selection.ranges.map((r) =>
+              EditorSelection.range(r.anchor + adjustment, r.head + adjustment)
+            );
+            selection = EditorSelection.create(ranges);
+          }
+
+          function registerChange(change: ChangeSpec, revert: ChangeSpec) {
+            changes.push(change);
+            reverts.push(revert);
+          }
+
+          tr.changes.iterChanges((_a, _b, fromB, toB, inserted) => {
+            const insertedText = inserted.sliceString(0, 0 + inserted.length);
+
+            for (let rule of this.inputRules) {
+              if (!canPerformReplacement(fromB)) return;
+              if (
+                insertedText === rule.trigger &&
+                rule.shouldReplace(tr, fromB, toB)
+              ) {
+                return rule.replace({
+                  tr,
+                  registerChange,
+                  adjustSelection,
+                  settings: this.settings,
+                  from: fromB,
+                  to: toB,
+                });
+              }
             }
           }, false);
 
           if (changes.length) {
-            // TODO:
-            //   - This doesn't transfer annotations or other data from the transaction,
-            //     is there a better way to do this?
-            //   - How do we save the original changes and dispatch the storeTransaction 
-            //     effect above. Do we append it to tr.effects?
             return [
               {
-                effects: tr.effects,
-                selection: tr.selection,
+                effects: storeTransaction.of({
+                  selection: tr.selection,
+                  scrollIntoView: tr.scrollIntoView,
+                  changes: reverts,
+                }),
+                selection: selection,
                 scrollIntoView: tr.scrollIntoView,
                 changes: tr.changes.compose(
                   ChangeSet.of(changes, tr.newDoc.length)
@@ -233,11 +223,83 @@ export default class SmartTypography extends Plugin {
   }
 
   onunload() {
-    this.lastUpdate = null;
+    this.legacyLastUpdate = null;
     this.app.workspace.iterateCodeMirrors((cm) => {
       cm.off("beforeChange", this.beforeChangeHandler);
     });
   }
+
+  beforeChangeHandler = (
+    instance: CodeMirror.Editor,
+    delta: CodeMirror.EditorChangeCancellable
+  ) => {
+    if (this.legacyLastUpdate.has(instance) && delta.origin === "+delete") {
+      const revert = this.legacyLastUpdate.get(instance).performRevert;
+
+      if (revert) {
+        revert(instance, delta, this.settings);
+        this.legacyLastUpdate.delete(instance);
+      }
+      return;
+    }
+
+    if (delta.origin === undefined && delta.text.length === 1) {
+      const input = delta.text[0];
+
+      for (let rule of this.legacyInputRules) {
+        if (!(rule.matchTrigger instanceof RegExp)) {
+          continue;
+        }
+
+        if (rule.matchTrigger.test(input)) {
+          rule.performUpdate(instance, delta, this.settings);
+          return;
+        }
+      }
+
+      return;
+    }
+
+    if (delta.origin === "+input" && delta.text.length === 1) {
+      const input = delta.text[0];
+      const rules = this.legacyInputRules.filter((r) => {
+        return typeof r.matchTrigger === "string" && r.matchTrigger === input;
+      });
+
+      if (rules.length === 0) {
+        if (this.legacyLastUpdate.has(instance)) {
+          this.legacyLastUpdate.delete(instance);
+        }
+        return;
+      }
+
+      let str = input;
+
+      if (delta.to.ch > 0) {
+        str = `${instance.getRange(
+          { line: delta.to.line, ch: 0 },
+          delta.to
+        )}${str}`;
+      }
+
+      for (let rule of rules) {
+        if (rule.matchRegExp && rule.matchRegExp.test(str)) {
+          if (
+            shouldCheckTextAtPos(instance, delta.from) &&
+            shouldCheckTextAtPos(instance, delta.to)
+          ) {
+            this.legacyLastUpdate.set(instance, rule);
+            rule.performUpdate(instance, delta, this.settings);
+          }
+          return;
+        }
+      }
+    }
+
+    if (this.legacyLastUpdate.has(instance)) {
+      this.legacyLastUpdate.delete(instance);
+    }
+  };
 
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
