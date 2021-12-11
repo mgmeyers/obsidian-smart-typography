@@ -19,6 +19,11 @@ export default {
     exports: "default",
     banner,
   },
-  external: ["obsidian", "@codemirror/state", "@codemirror/language"],
+  external: [
+    "obsidian",
+    "@codemirror/state",
+    "@codemirror/language",
+    "@codemirror/stream-parser",
+  ],
   plugins: [typescript(), nodeResolve({ browser: true }), commonjs()],
 };

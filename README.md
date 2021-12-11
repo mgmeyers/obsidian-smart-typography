@@ -12,6 +12,16 @@ This plugin (currently) converts:
 - Two dashes (`--`) to – - en-dash
 - En-dash + dash (`–-`) to — - em-dash
 - Em-dash + dash (`—-`) to `---` - three dashes
+- Fractions:
+  - `1/2` to `½`
+  - `⅓`, `⅔`
+  - `¼`, `¾`
+  - `⅕`, `⅖`, `⅗`, `⅘`
+  - `⅙`, `⅚`
+  - `⅐`
+  - `⅛`, `⅜`, `⅝`, `⅞`
+  - `⅑`
+  - `⅒`
 
 as you type. Any automatic changes can be undone by pressing backspace.
 

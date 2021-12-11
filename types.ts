@@ -5,6 +5,7 @@ export interface SmartTypographySettings {
   arrows: boolean;
   guillemets: boolean;
   comparisons: boolean;
+  fractions: boolean;
 
   openSingle: string;
   closeSingle: string;

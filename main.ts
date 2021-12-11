@@ -18,6 +18,7 @@ import {
   TransactionSpec,
 } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
+import { tokenClassNodeProp } from "@codemirror/stream-parser";
 import { SmartTypographySettings } from "types";
 import { Tree } from "@lezer/common";
 import {
@@ -25,6 +26,7 @@ import {
   comparisonRules,
   dashRules,
   ellipsisRules,
+  fractionRules,
   guillemetRules,
   InputRule,
   smartQuoteRules,
@@ -35,8 +37,9 @@ const DEFAULT_SETTINGS: SmartTypographySettings = {
   emDash: true,
   ellipsis: true,
   arrows: true,
-  guillemets: false,
   comparisons: true,
+  fractions: false,
+  guillemets: false,
 
   openSingle: "‘",
   closeSingle: "’",
@@ -87,9 +90,14 @@ export default class SmartTypography extends Plugin {
       this.inputRules.push(...guillemetRules);
       this.legacyInputRules.push(...legacyGuillemetRules);
     }
+
     if (this.settings.comparisons) {
       this.inputRules.push(...comparisonRules);
       this.legacyInputRules.push(...legacyComparisonRules);
+    }
+
+    if (this.settings.fractions) {
+      this.inputRules.push(...fractionRules);
     }
   }
 
@@ -121,95 +129,110 @@ export default class SmartTypography extends Plugin {
     this.registerEditorExtension([
       prevTransactionState,
       EditorState.transactionFilter.of((tr) => {
-        if (tr.isUserEvent("delete.backward")) {
+        // Revert any stored changes on delete
+        if (
+          tr.isUserEvent("delete.backward") ||
+          tr.isUserEvent("delete.selection")
+        ) {
           return tr.startState.field(prevTransactionState, false) || tr;
         }
 
-        if (tr.docChanged) {
-          const changes: ChangeSpec[] = [];
-          const reverts: ChangeSpec[] = [];
-          const seenPositions: Record<number, boolean> = {};
+        // If the user hasn't typed, or the doc hasn't changed, return early
+        if (!tr.isUserEvent("input.type") || !tr.docChanged) {
+          return tr;
+        }
 
-          let selection = tr.selection;
-          let tree: Tree = null;
+        // Store a list of changes and specs to revert these changes
+        const changes: ChangeSpec[] = [];
+        const reverts: ChangeSpec[] = [];
 
-          function getTree() {
-            if (!tree) {
-              tree = syntaxTree(tr.startState);
-            }
+        // Cache the syntax tree if we end up having to access it
+        let tree: Tree = null;
+        const getTree = () => {
+          if (!tree) tree = syntaxTree(tr.state);
+          return tree;
+        };
 
-            return tree;
-          }
-
-          function canPerformReplacement(pos: number) {
-            if (seenPositions[pos] !== undefined) {
-              return seenPositions[pos];
-            }
-
-            const nodeLeft = getTree().resolve(pos, -1);
-            const nodeRight = getTree().resolve(pos, 1);
-
-            if (
-              ignoreListRegEx.test(nodeLeft.type.name) ||
-              ignoreListRegEx.test(nodeRight.type.name)
-            ) {
-              seenPositions[pos] = false;
-            } else {
-              seenPositions[pos] = true;
-            }
-
+        // Memoize any positions we check so we can avoid some work
+        const seenPositions: Record<number, boolean> = {};
+        const canPerformReplacement = (pos: number) => {
+          if (seenPositions[pos] !== undefined) {
             return seenPositions[pos];
           }
 
-          function adjustSelection(adjustment: number) {
-            const ranges = selection.ranges.map((r) =>
-              EditorSelection.range(r.anchor + adjustment, r.head + adjustment)
-            );
-            selection = EditorSelection.create(ranges);
+          const nodeProps = getTree()
+            .resolveInner(pos, 1)
+            .type.prop(tokenClassNodeProp);
+
+          if (nodeProps && ignoreListRegEx.test(nodeProps)) {
+            seenPositions[pos] = false;
+          } else {
+            seenPositions[pos] = true;
           }
 
-          function registerChange(change: ChangeSpec, revert: ChangeSpec) {
-            changes.push(change);
-            reverts.push(revert);
-          }
+          return seenPositions[pos];
+        };
 
-          tr.changes.iterChanges((_a, _b, fromB, toB, inserted) => {
-            const insertedText = inserted.sliceString(0, 0 + inserted.length);
+        let selection = tr.selection;
+        const adjustSelection = (adjustment: number) => {
+          const ranges = selection.ranges.map((r) =>
+            EditorSelection.range(r.anchor + adjustment, r.head + adjustment)
+          );
+          selection = EditorSelection.create(ranges);
+        };
 
-            for (let rule of this.inputRules) {
-              if (!canPerformReplacement(fromB)) return;
-              if (
-                insertedText === rule.trigger &&
-                rule.shouldReplace(tr, fromB, toB)
-              ) {
-                return rule.replace({
-                  tr,
-                  registerChange,
-                  adjustSelection,
-                  settings: this.settings,
-                  from: fromB,
-                  to: toB,
-                });
-              }
+        const registerChange = (change: ChangeSpec, revert: ChangeSpec) => {
+          changes.push(change);
+          reverts.push(revert);
+        };
+
+        const contextCache: Record<number, string> = {};
+        tr.changes.iterChanges((_a, _b, from, to, inserted) => {
+          const insertedText = inserted.sliceString(0, 0 + inserted.length);
+
+          for (let rule of this.inputRules) {
+            // This character is not a trigger, so continue testing rules
+            if (insertedText !== rule.trigger) continue;
+
+            // If we're in a codeblock, etc, return early, no need to continue checking
+            if (!canPerformReplacement(from)) return;
+
+            // Grab and cache three chars before the one being inserted
+            if (contextCache[to] === undefined) {
+              contextCache[to] = tr.newDoc.sliceString(from - 3, to - 1);
             }
-          }, false);
 
-          if (changes.length) {
-            return [
-              {
-                effects: storeTransaction.of({
-                  selection: tr.selection,
-                  scrollIntoView: tr.scrollIntoView,
-                  changes: reverts,
-                }),
-                selection: selection,
-                scrollIntoView: tr.scrollIntoView,
-                changes: tr.changes.compose(
-                  ChangeSet.of(changes, tr.newDoc.length)
-                ),
-              },
-            ];
+            // Final check: given the context, see if we should perform a replacement
+            if (rule.shouldReplace(contextCache[to])) {
+              return rule.replace({
+                adjustSelection,
+                context: contextCache[to],
+                from,
+                registerChange,
+                settings: this.settings,
+                to,
+                tr,
+              });
+            }
           }
+        }, false);
+
+        // If we have any changes, construct a transaction spec
+        if (changes.length) {
+          return [
+            {
+              effects: storeTransaction.of({
+                selection: tr.selection,
+                scrollIntoView: tr.scrollIntoView,
+                changes: reverts,
+              }),
+              selection: selection,
+              scrollIntoView: tr.scrollIntoView,
+              changes: tr.changes.compose(
+                ChangeSet.of(changes, tr.newDoc.length)
+              ),
+            },
+          ];
         }
 
         return tr;

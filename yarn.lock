@@ -2,7 +2,7 @@
 # yarn lockfile v1
 
 
-"@codemirror/language@^0.19.7":
+"@codemirror/language@^0.19.0", "@codemirror/language@^0.19.7":
   version "0.19.7"
   resolved "https://registry.yarnpkg.com/@codemirror/language/-/language-0.19.7.tgz#9eef8e827692d93a701b18db9d46a42be34ecca6"
   integrity sha512-pNNUtYWMIMG0lUSKyUXJr8U0rFiCKsKFXbA2Oj17PC+S1FY99hV0z1vcntW67ekAIZw9DMEUQnLsKBuIbAUX7Q==
@@ -26,6 +26,16 @@
   integrity sha512-sqIQZE9VqwQj7D4c2oz9mfLhlT1ElAzGB5lO1lE33BPyrdNy1cJyCIOecT4cn4VeJOFrnjOeu+IftZ3zqdFETw==
   dependencies:
     "@codemirror/text" "^0.19.0"
+
+"@codemirror/stream-parser@https://github.com/lishid/stream-parser":
+  version "0.19.2"
+  resolved "https://github.com/lishid/stream-parser#c0d0ab51ef7c73a55625324623f914823cf99ec4"
+  dependencies:
+    "@codemirror/language" "^0.19.0"
+    "@codemirror/state" "^0.19.0"
+    "@codemirror/text" "^0.19.0"
+    "@lezer/common" "^0.15.0"
+    "@lezer/lr" "^0.15.0"
 
 "@codemirror/text@^0.19.0":
   version "0.19.5"
