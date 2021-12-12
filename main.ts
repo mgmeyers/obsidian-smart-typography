@@ -113,12 +113,26 @@ export default class SmartTypography extends Plugin {
       create() {
         return null;
       },
-      update(_, tr) {
+      update(oldVal, tr) {
         for (let e of tr.effects) {
-          if (e.is(storeTransaction)) return e.value;
+          if (e.is(storeTransaction)) {
+            return e.value;
+          }
         }
 
-        return null;
+        if (
+          !oldVal ||
+          tr.isUserEvent("input") ||
+          tr.isUserEvent("delete.forward") ||
+          tr.isUserEvent("delete.cut") ||
+          tr.isUserEvent("move") ||
+          tr.isUserEvent("select") ||
+          tr.isUserEvent("undo")
+        ) {
+          return null;
+        }
+
+        return oldVal;
       },
     });
 
@@ -222,6 +236,7 @@ export default class SmartTypography extends Plugin {
           return [
             {
               effects: storeTransaction.of({
+                effects: storeTransaction.of(null),
                 selection: tr.selection,
                 scrollIntoView: tr.scrollIntoView,
                 changes: reverts,
