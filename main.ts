@@ -187,7 +187,7 @@ export default class SmartTypography extends Plugin {
 
         const contextCache: Record<number, string> = {};
 
-        tr.changes.iterChanges((fromA, _b, fromB, _c, inserted) => {
+        tr.changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
           const insertedText = inserted.sliceString(0, 0 + inserted.length);
 
           for (let rule of this.inputRules) {
