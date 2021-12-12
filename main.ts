@@ -1,15 +1,5 @@
-import {
-  legacyArrowRules,
-  legacyEllipsisRules,
-  legacyDashRules,
-  LegacyInputRule,
-  legacySmartQuoteRules,
-  legacyGuillemetRules,
-  legacyComparisonRules,
-} from "legacyInputRules";
 import { App, Plugin, PluginSettingTab, Setting } from "obsidian";
 import {
-  ChangeSet,
   ChangeSpec,
   EditorSelection,
   EditorState,
@@ -19,12 +9,22 @@ import {
 } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import { tokenClassNodeProp } from "@codemirror/stream-parser";
-import { SmartTypographySettings } from "types";
 import { Tree } from "@lezer/common";
+import { SmartTypographySettings } from "types";
+import {
+  legacyArrowRules,
+  legacyEllipsisRules,
+  legacyDashRules,
+  LegacyInputRule,
+  legacySmartQuoteRules,
+  legacyGuillemetRules,
+  legacyComparisonRules,
+} from "legacyInputRules";
 import {
   arrowRules,
   comparisonRules,
   dashRules,
+  dashRulesSansEnDash,
   ellipsisRules,
   fractionRules,
   guillemetRules,
@@ -40,6 +40,7 @@ const DEFAULT_SETTINGS: SmartTypographySettings = {
   comparisons: true,
   fractions: false,
   guillemets: false,
+  skipEnDash: false,
 
   openSingle: "‘",
   closeSingle: "’",
@@ -54,6 +55,7 @@ const DEFAULT_SETTINGS: SmartTypographySettings = {
 export default class SmartTypography extends Plugin {
   settings: SmartTypographySettings;
   inputRules: InputRule[];
+  inputRuleMap: Record<string, InputRule[]>;
 
   legacyInputRules: LegacyInputRule[];
   legacyLastUpdate: WeakMap<CodeMirror.Editor, LegacyInputRule>;
@@ -61,9 +63,15 @@ export default class SmartTypography extends Plugin {
   buildInputRules() {
     this.legacyInputRules = [];
     this.inputRules = [];
+    this.inputRuleMap = {};
 
     if (this.settings.emDash) {
-      this.inputRules.push(...dashRules);
+      if (this.settings.skipEnDash) {
+        this.inputRules.push(...dashRulesSansEnDash);
+      } else {
+        this.inputRules.push(...dashRules);
+      }
+
       this.legacyInputRules.push(...legacyDashRules);
     }
 
@@ -95,11 +103,17 @@ export default class SmartTypography extends Plugin {
     if (this.settings.fractions) {
       this.inputRules.push(...fractionRules);
     }
+
+    this.inputRules.forEach((rule) => {
+      if (this.inputRuleMap[rule.trigger] === undefined) {
+        this.inputRuleMap[rule.trigger] = [];
+      }
+
+      this.inputRuleMap[rule.trigger].push(rule);
+    });
   }
 
   async onload() {
-    this.legacyLastUpdate = new WeakMap();
-
     await this.loadSettings();
 
     this.addSettingTab(new SmartTypographySettingTab(this.app, this));
@@ -152,13 +166,8 @@ export default class SmartTypography extends Plugin {
           return tr;
         }
 
-        // Cache the syntax tree if we end up having to access it
+        // Cache the syntax tree if we end up accessing it
         let tree: Tree = null;
-
-        const getTree = () => {
-          if (!tree) tree = syntaxTree(tr.state);
-          return tree;
-        };
 
         // Memoize any positions we check so we can avoid some work
         const seenPositions: Record<number, boolean> = {};
@@ -168,7 +177,9 @@ export default class SmartTypography extends Plugin {
             return seenPositions[pos];
           }
 
-          const nodeProps = getTree()
+          if (!tree) tree = syntaxTree(tr.state);
+
+          const nodeProps = tree
             .resolveInner(pos, 1)
             .type.prop(tokenClassNodeProp);
 
@@ -181,15 +192,6 @@ export default class SmartTypography extends Plugin {
           return seenPositions[pos];
         };
 
-        let selection = tr.selection;
-
-        const adjustSelection = (adjustment: number) => {
-          const ranges = selection.ranges.map((r) =>
-            EditorSelection.range(r.anchor + adjustment, r.head + adjustment)
-          );
-          selection = EditorSelection.create(ranges);
-        };
-
         // Store a list of changes and specs to revert these changes
         const changes: ChangeSpec[] = [];
         const reverts: ChangeSpec[] = [];
@@ -200,14 +202,17 @@ export default class SmartTypography extends Plugin {
         };
 
         const contextCache: Record<number, string> = {};
+        let newSelection = tr.selection;
 
         tr.changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
           const insertedText = inserted.sliceString(0, 0 + inserted.length);
+          const matchedRules = this.inputRuleMap[insertedText];
 
-          for (let rule of this.inputRules) {
-            // This character is not a trigger, so continue testing rules
-            if (insertedText !== rule.trigger) continue;
+          if (!matchedRules) {
+            return;
+          }
 
+          for (let rule of matchedRules) {
             // If we're in a codeblock, etc, return early, no need to continue checking
             if (!canPerformReplacement(fromA)) return;
 
@@ -216,18 +221,43 @@ export default class SmartTypography extends Plugin {
               contextCache[fromA] = tr.newDoc.sliceString(fromB - 3, fromB);
             }
 
-            // Final check: given the context, see if we should perform a replacement
-            if (rule.shouldReplace(contextCache[fromA])) {
-              return rule.replace({
-                adjustSelection,
-                context: contextCache[fromA],
-                fromA,
-                fromB,
-                registerChange,
-                settings: this.settings,
-                tr,
-              });
+            const context = contextCache[fromA];
+
+            if (!rule.contextMatch.test(context)) {
+              continue;
             }
+
+            const insert =
+              typeof rule.to === "string" ? rule.to : rule.to(this.settings);
+            const replacementLength = rule.from.length - rule.trigger.length;
+            const insertionPoint = fromA - replacementLength;
+            const reversionPoint = fromB - replacementLength;
+
+            registerChange(
+              {
+                from: insertionPoint,
+                to: insertionPoint + replacementLength,
+                insert,
+              },
+              {
+                from: reversionPoint,
+                to: reversionPoint + insert.length,
+                insert: rule.from,
+              }
+            );
+
+            const selectionAdjustment = rule.from.length - insert.length;
+
+            newSelection = EditorSelection.create(
+              newSelection.ranges.map((r) =>
+                EditorSelection.range(
+                  r.anchor - selectionAdjustment,
+                  r.head - selectionAdjustment
+                )
+              )
+            );
+
+            return;
           }
         }, false);
 
@@ -241,7 +271,7 @@ export default class SmartTypography extends Plugin {
                 scrollIntoView: tr.scrollIntoView,
                 changes: reverts,
               }),
-              selection: selection,
+              selection: newSelection,
               scrollIntoView: tr.scrollIntoView,
               changes,
             },
@@ -253,6 +283,7 @@ export default class SmartTypography extends Plugin {
     ]);
 
     // Codemirror 5
+    this.legacyLastUpdate = new WeakMap();
     this.registerCodeMirror((cm: CodeMirror.Editor) => {
       cm.on("beforeChange", this.beforeChangeHandler);
     });
@@ -450,6 +481,20 @@ class SmartTypographySettingTab extends PluginSettingTab {
           this.plugin.settings.emDash = value;
           await this.plugin.saveSettings();
         });
+      });
+
+    new Setting(containerEl)
+      .setName("Skip en-dash")
+      .setDesc(
+        "When enabled, two dashes will be converted to an em-dash rather than an en-dash."
+      )
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.skipEnDash)
+          .onChange(async (value) => {
+            this.plugin.settings.skipEnDash = value;
+            await this.plugin.saveSettings();
+          });
       });
 
     new Setting(containerEl)

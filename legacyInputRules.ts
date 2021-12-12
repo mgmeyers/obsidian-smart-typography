@@ -222,13 +222,11 @@ export const greaterThanOrEqualTo: LegacyInputRule = {
   matchRegExp: />=$/,
   performUpdate: (instance, delta, settings) => {
     delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
-      settings.greaterThanOrEqualTo,
+      "≥",
     ]);
   },
   performRevert: (instance, delta, settings) => {
-    if (
-      instance.getRange(delta.from, delta.to) === settings.greaterThanOrEqualTo
-    ) {
+    if (instance.getRange(delta.from, delta.to) === "≥") {
       delta.update(delta.from, delta.to, [">="]);
     }
   },
@@ -239,13 +237,11 @@ export const lessThanOrEqualTo: LegacyInputRule = {
   matchRegExp: /<=$/,
   performUpdate: (instance, delta, settings) => {
     delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
-      settings.lessThanOrEqualTo,
+      "≤",
     ]);
   },
   performRevert: (instance, delta, settings) => {
-    if (
-      instance.getRange(delta.from, delta.to) === settings.lessThanOrEqualTo
-    ) {
+    if (instance.getRange(delta.from, delta.to) === "≤") {
       delta.update(delta.from, delta.to, ["<="]);
     }
   },
@@ -256,11 +252,11 @@ export const notEqualTo: LegacyInputRule = {
   matchRegExp: /\/=$/,
   performUpdate: (instance, delta, settings) => {
     delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
-      settings.notEqualTo,
+      "≠",
     ]);
   },
   performRevert: (instance, delta, settings) => {
-    if (instance.getRange(delta.from, delta.to) === settings.notEqualTo) {
+    if (instance.getRange(delta.from, delta.to) === "≠") {
       delta.update(delta.from, delta.to, ["/="]);
     }
   },
