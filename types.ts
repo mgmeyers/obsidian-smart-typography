@@ -13,7 +13,4 @@ export interface SmartTypographySettings {
   closeDouble: string;
   leftArrow: string;
   rightArrow: string;
-  lessThanOrEqualTo: string;
-  greaterThanOrEqualTo: string;
-  notEqualTo: string;
 }

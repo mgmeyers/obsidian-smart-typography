@@ -22,6 +22,10 @@ This plugin (currently) converts:
   - `⅛`, `⅜`, `⅝`, `⅞`
   - `⅑`
   - `⅒`
+- Comparisons:
+  - `<=` to `≤`
+  - `>=` to `≥`
+  - `/=` to `≠`
 
 as you type. Any automatic changes can be undone by pressing backspace.
 

@@ -22,6 +22,7 @@ export default {
   external: [
     "obsidian",
     "@codemirror/state",
+    "@codemirror/view",
     "@codemirror/language",
     "@codemirror/stream-parser",
   ],

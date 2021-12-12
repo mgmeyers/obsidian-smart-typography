@@ -10,8 +10,8 @@ interface InputRuleParams {
   adjustSelection: (adjustment: number) => void;
   tr: Transaction;
   settings: SmartTypographySettings;
-  from: number;
-  to: number;
+  fromA: number;
+  fromB: number;
   context: string;
 }
 
@@ -32,12 +32,17 @@ export const enDash: InputRule = {
   shouldReplace: (context: string) => {
     return getLastChar(context) === dashChar;
   },
-  replace: ({ registerChange, adjustSelection, from, to }: InputRuleParams) => {
+  replace: ({
+    registerChange,
+    adjustSelection,
+    fromA,
+    fromB,
+  }: InputRuleParams) => {
     registerChange(
-      { from: from - 1, to: to, insert: enDashChar },
+      { from: fromA - 1, to: fromA, insert: enDashChar },
       {
-        from: from - 1,
-        to: to - 1,
+        from: fromB - 1,
+        to: fromB,
         insert: dashChar + dashChar,
       }
     );
@@ -51,12 +56,17 @@ export const emDash: InputRule = {
   shouldReplace: (context: string) => {
     return getLastChar(context) === enDashChar;
   },
-  replace: ({ registerChange, adjustSelection, from, to }: InputRuleParams) => {
+  replace: ({
+    registerChange,
+    adjustSelection,
+    fromA,
+    fromB,
+  }: InputRuleParams) => {
     registerChange(
-      { from: from - 1, to: to, insert: emDashChar },
+      { from: fromA - 1, to: fromA, insert: emDashChar },
       {
-        from: from - 1,
-        to: to - 1,
+        from: fromB - 1,
+        to: fromB,
         insert: enDashChar + dashChar,
       }
     );
@@ -70,12 +80,21 @@ export const trippleDash: InputRule = {
   shouldReplace: (context: string) => {
     return getLastChar(context) === emDashChar;
   },
-  replace: ({ registerChange, adjustSelection, from, to }: InputRuleParams) => {
+  replace: ({
+    registerChange,
+    adjustSelection,
+    fromA,
+    fromB,
+  }: InputRuleParams) => {
     registerChange(
-      { from: from - 1, to: to, insert: dashChar + dashChar + dashChar },
       {
-        from: from - 1,
-        to: to + 1,
+        from: fromA - 1,
+        to: fromA,
+        insert: dashChar + dashChar + dashChar,
+      },
+      {
+        from: fromB - 1,
+        to: fromB + 2,
         insert: emDashChar + dashChar,
       }
     );
@@ -93,12 +112,17 @@ export const ellipsis: InputRule = {
   shouldReplace: (context: string) => {
     return context && context.endsWith("..");
   },
-  replace: ({ registerChange, adjustSelection, from, to }: InputRuleParams) => {
+  replace: ({
+    registerChange,
+    adjustSelection,
+    fromA,
+    fromB,
+  }: InputRuleParams) => {
     registerChange(
-      { from: from - 2, to: to, insert: "…" },
+      { from: fromA - 2, to: fromA, insert: "…" },
       {
-        from: from - 2,
-        to: to - 2,
+        from: fromB - 2,
+        to: fromB - 1,
         insert: "...",
       }
     );
@@ -112,29 +136,33 @@ export const ellipsisRules = [ellipsis];
 // Quotes
 export const doubleQuote: InputRule = {
   trigger: '"',
-  shouldReplace: (context: string) => {
+  shouldReplace: () => {
     return true;
   },
-  replace: ({ tr, registerChange, settings, from, to }: InputRuleParams) => {
-    const prev = tr.newDoc.sliceString(from - 1, to - 1);
-
-    if (prev.length === 0 || /[\s\{\[\(\<'"\u2018\u201C]$/.test(prev)) {
+  replace: ({
+    context,
+    registerChange,
+    settings,
+    fromA,
+    fromB,
+  }: InputRuleParams) => {
+    if (context.length === 0 || /[\s\{\[\(\<'"\u2018\u201C]$/.test(context)) {
       registerChange(
         {
-          from: from,
-          to: to,
+          from: fromA,
+          to: fromA,
           insert: settings.openDouble,
         },
-        { from: from, to: to, insert: '"' }
+        { from: fromB, to: fromB + 1, insert: '"' }
       );
     } else {
       registerChange(
         {
-          from: from,
-          to: to,
+          from: fromA,
+          to: fromA,
           insert: settings.closeDouble,
         },
-        { from: from, to: to, insert: '"' }
+        { from: fromB, to: fromB + 1, insert: '"' }
       );
     }
   },
@@ -142,50 +170,50 @@ export const doubleQuote: InputRule = {
 
 export const pairedDoubleQuote: InputRule = {
   trigger: '""',
-  shouldReplace: (context: string) => {
+  shouldReplace: () => {
     return true;
   },
-  replace: ({ tr, registerChange, settings, from, to }: InputRuleParams) => {
+  replace: ({ registerChange, settings, fromA, fromB }: InputRuleParams) => {
     registerChange(
       {
-        from: from,
-        to: to,
+        from: fromA,
+        to: fromA,
         insert: settings.openDouble + settings.closeDouble,
       },
-      { from: from, to: to, insert: '""' }
+      { from: fromB, to: fromB + 2, insert: '""' }
     );
   },
 };
 
 export const singleQuote: InputRule = {
   trigger: "'",
-  shouldReplace: (context: string) => {
+  shouldReplace: () => {
     return true;
   },
   replace: ({
     registerChange,
     settings,
-    from,
-    to,
+    fromA,
+    fromB,
     context,
   }: InputRuleParams) => {
     if (context.length === 0 || /[\s\{\[\(\<'"\u2018\u201C]$/.test(context)) {
       registerChange(
         {
-          from: from,
-          to: to,
+          from: fromA,
+          to: fromA,
           insert: settings.openSingle,
         },
-        { from: from, to: to, insert: "'" }
+        { from: fromB, to: fromB + 1, insert: "'" }
       );
     } else {
       registerChange(
         {
-          from: from,
-          to: to,
+          from: fromA,
+          to: fromA,
           insert: settings.closeSingle,
         },
-        { from: from, to: to, insert: "'" }
+        { from: fromB, to: fromB + 1, insert: "'" }
       );
     }
   },
@@ -193,17 +221,17 @@ export const singleQuote: InputRule = {
 
 export const pairedSingleQuote: InputRule = {
   trigger: "''",
-  shouldReplace: (context: string) => {
+  shouldReplace: () => {
     return true;
   },
-  replace: ({ tr, registerChange, settings, from, to }: InputRuleParams) => {
+  replace: ({ registerChange, settings, fromA, fromB }: InputRuleParams) => {
     registerChange(
       {
-        from: from,
-        to: to,
+        from: fromA,
+        to: fromA,
         insert: settings.openSingle + settings.closeSingle,
       },
-      { from: from, to: to, insert: "''" }
+      { from: fromB, to: fromB + 2, insert: "''" }
     );
   },
 };
@@ -226,14 +254,18 @@ export const leftArrow: InputRule = {
     settings,
     registerChange,
     adjustSelection,
-    from,
-    to,
+    fromA,
+    fromB,
   }: InputRuleParams) => {
     registerChange(
-      { from: from - 1, to: to, insert: settings.leftArrow },
       {
-        from: from - 1,
-        to: to - 1,
+        from: fromA - 1,
+        to: fromA,
+        insert: settings.leftArrow,
+      },
+      {
+        from: fromB - 1,
+        to: fromB,
         insert: "<" + dashChar,
       }
     );
@@ -251,14 +283,18 @@ export const rightArrow: InputRule = {
     settings,
     registerChange,
     adjustSelection,
-    from,
-    to,
+    fromA,
+    fromB,
   }: InputRuleParams) => {
     registerChange(
-      { from: from - 1, to: to, insert: settings.rightArrow },
       {
-        from: from - 1,
-        to: to - 1,
+        from: fromA - 1,
+        to: fromA,
+        insert: settings.rightArrow,
+      },
+      {
+        from: fromB - 1,
+        to: fromB,
         insert: dashChar + ">",
       }
     );
@@ -276,12 +312,17 @@ export const leftGuillemet: InputRule = {
   shouldReplace: (context: string) => {
     return getLastChar(context) === "<";
   },
-  replace: ({ registerChange, adjustSelection, from, to }: InputRuleParams) => {
+  replace: ({
+    registerChange,
+    adjustSelection,
+    fromA,
+    fromB,
+  }: InputRuleParams) => {
     registerChange(
-      { from: from - 1, to: to, insert: "«" },
+      { from: fromA - 1, to: fromA, insert: "«" },
       {
-        from: from - 1,
-        to: to - 1,
+        from: fromB - 1,
+        to: fromB,
         insert: "<<",
       }
     );
@@ -295,12 +336,17 @@ export const rightGuillemet: InputRule = {
   shouldReplace: (context: string) => {
     return getLastChar(context) === ">";
   },
-  replace: ({ registerChange, adjustSelection, from, to }: InputRuleParams) => {
+  replace: ({
+    registerChange,
+    adjustSelection,
+    fromA,
+    fromB,
+  }: InputRuleParams) => {
     registerChange(
-      { from: from - 1, to: to, insert: "»" },
+      { from: fromA - 1, to: fromA, insert: "»" },
       {
-        from: from - 1,
-        to: to - 1,
+        from: fromB - 1,
+        to: fromB,
         insert: ">>",
       }
     );
@@ -320,14 +366,18 @@ export const greaterThanOrEqualTo: InputRule = {
     settings,
     registerChange,
     adjustSelection,
-    from,
-    to,
+    fromA,
+    fromB,
   }: InputRuleParams) => {
     registerChange(
-      { from: from - 1, to: to, insert: settings.greaterThanOrEqualTo },
       {
-        from: from - 1,
-        to: to - 1,
+        from: fromA - 1,
+        to: fromA,
+        insert: "≤",
+      },
+      {
+        from: fromB - 1,
+        to: fromB,
         insert: ">=",
       }
     );
@@ -345,14 +395,18 @@ export const lessThanOrEqualTo: InputRule = {
     settings,
     registerChange,
     adjustSelection,
-    from,
-    to,
+    fromA,
+    fromB,
   }: InputRuleParams) => {
     registerChange(
-      { from: from - 1, to: to, insert: settings.lessThanOrEqualTo },
       {
-        from: from - 1,
-        to: to - 1,
+        from: fromA - 1,
+        to: fromA,
+        insert: "≥",
+      },
+      {
+        from: fromB - 1,
+        to: fromB,
         insert: "<=",
       }
     );
@@ -370,14 +424,18 @@ export const notEqualTo: InputRule = {
     settings,
     registerChange,
     adjustSelection,
-    from,
-    to,
+    fromA,
+    fromB,
   }: InputRuleParams) => {
     registerChange(
-      { from: from - 1, to: to, insert: settings.notEqualTo },
       {
-        from: from - 1,
-        to: to - 1,
+        from: fromA - 1,
+        to: fromA,
+        insert: "≠",
+      },
+      {
+        from: fromB - 1,
+        to: fromB,
         insert: "/=",
       }
     );
@@ -399,12 +457,17 @@ export const frac2: InputRule = {
   shouldReplace: (context: string) => {
     return context && /(?:^|\s)1\/$/.test(context);
   },
-  replace: ({ registerChange, adjustSelection, from, to }: InputRuleParams) => {
+  replace: ({
+    registerChange,
+    adjustSelection,
+    fromA,
+    fromB,
+  }: InputRuleParams) => {
     registerChange(
-      { from: from - 2, to: to, insert: "½" },
+      { from: fromA - 2, to: fromA, insert: "½" },
       {
-        from: from - 2,
-        to: to - 2,
+        from: fromB - 2,
+        to: fromB - 1,
         insert: "1/2",
       }
     );
@@ -422,8 +485,8 @@ export const frac3: InputRule = {
     context,
     registerChange,
     adjustSelection,
-    from,
-    to,
+    fromA,
+    fromB,
   }: InputRuleParams) => {
     let insert = "⅓";
     let revert = "1/3";
@@ -434,10 +497,10 @@ export const frac3: InputRule = {
     }
 
     registerChange(
-      { from: from - 2, to: to, insert },
+      { from: fromA - 2, to: fromA, insert },
       {
-        from: from - 2,
-        to: to - 2,
+        from: fromB - 2,
+        to: fromB - 1,
         insert: revert,
       }
     );
@@ -455,8 +518,8 @@ export const frac4: InputRule = {
     context,
     registerChange,
     adjustSelection,
-    from,
-    to,
+    fromA,
+    fromB,
   }: InputRuleParams) => {
     let insert = "¼";
     let revert = "1/4";
@@ -467,10 +530,10 @@ export const frac4: InputRule = {
     }
 
     registerChange(
-      { from: from - 2, to: to, insert },
+      { from: fromA - 2, to: fromA, insert },
       {
-        from: from - 2,
-        to: to - 2,
+        from: fromB - 2,
+        to: fromB - 1,
         insert: revert,
       }
     );
@@ -488,8 +551,8 @@ export const frac5: InputRule = {
     context,
     registerChange,
     adjustSelection,
-    from,
-    to,
+    fromA,
+    fromB,
   }: InputRuleParams) => {
     let insert = "⅕";
     let revert = "1/5";
@@ -506,10 +569,10 @@ export const frac5: InputRule = {
     }
 
     registerChange(
-      { from: from - 2, to: to, insert },
+      { from: fromA - 2, to: fromA, insert },
       {
-        from: from - 2,
-        to: to - 2,
+        from: fromB - 2,
+        to: fromB - 1,
         insert: revert,
       }
     );
@@ -527,8 +590,8 @@ export const frac6: InputRule = {
     context,
     registerChange,
     adjustSelection,
-    from,
-    to,
+    fromA,
+    fromB,
   }: InputRuleParams) => {
     let insert = "⅙";
     let revert = "1/6";
@@ -539,10 +602,10 @@ export const frac6: InputRule = {
     }
 
     registerChange(
-      { from: from - 2, to: to, insert },
+      { from: fromA - 2, to: fromA, insert },
       {
-        from: from - 2,
-        to: to - 2,
+        from: fromB - 2,
+        to: fromB - 1,
         insert: revert,
       }
     );
@@ -557,20 +620,19 @@ export const frac7: InputRule = {
     return context && /(?:^|\s)1\/$/.test(context);
   },
   replace: ({
-    context,
     registerChange,
     adjustSelection,
-    from,
-    to,
+    fromA,
+    fromB,
   }: InputRuleParams) => {
     let insert = "⅐";
     let revert = "1/7";
 
     registerChange(
-      { from: from - 2, to: to, insert },
+      { from: fromA - 2, to: fromA, insert },
       {
-        from: from - 2,
-        to: to - 2,
+        from: fromB - 2,
+        to: fromB - 1,
         insert: revert,
       }
     );
@@ -588,8 +650,8 @@ export const frac8: InputRule = {
     context,
     registerChange,
     adjustSelection,
-    from,
-    to,
+    fromA,
+    fromB,
   }: InputRuleParams) => {
     let insert = "⅛";
     let revert = "1/8";
@@ -606,10 +668,10 @@ export const frac8: InputRule = {
     }
 
     registerChange(
-      { from: from - 2, to: to, insert },
+      { from: fromA - 2, to: fromA, insert },
       {
-        from: from - 2,
-        to: to - 2,
+        from: fromB - 2,
+        to: fromB - 1,
         insert: revert,
       }
     );
@@ -624,20 +686,19 @@ export const frac9: InputRule = {
     return context && /(?:^|\s)1\/$/.test(context);
   },
   replace: ({
-    context,
     registerChange,
     adjustSelection,
-    from,
-    to,
+    fromA,
+    fromB,
   }: InputRuleParams) => {
     let insert = "⅑";
     let revert = "1/9";
 
     registerChange(
-      { from: from - 2, to: to, insert },
+      { from: fromA - 2, to: fromA, insert },
       {
-        from: from - 2,
-        to: to - 2,
+        from: fromB - 2,
+        to: fromB - 1,
         insert: revert,
       }
     );
@@ -652,20 +713,19 @@ export const frac10: InputRule = {
     return context && /(?:^|\s)1\/1$/.test(context);
   },
   replace: ({
-    context,
     registerChange,
     adjustSelection,
-    from,
-    to,
+    fromA,
+    fromB,
   }: InputRuleParams) => {
     let insert = "⅒";
     let revert = "1/10";
 
     registerChange(
-      { from: from - 3, to: to, insert },
+      { from: fromA - 3, to: fromA, insert },
       {
-        from: from - 3,
-        to: to - 3,
+        from: fromB - 3,
+        to: fromB - 2,
         insert: revert,
       }
     );

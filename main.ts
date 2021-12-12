@@ -49,10 +49,6 @@ const DEFAULT_SETTINGS: SmartTypographySettings = {
 
   leftArrow: "←",
   rightArrow: "→",
-
-  lessThanOrEqualTo: "≤",
-  greaterThanOrEqualTo: "≥",
-  notEqualTo: "≠",
 };
 
 export default class SmartTypography extends Plugin {
@@ -142,12 +138,9 @@ export default class SmartTypography extends Plugin {
           return tr;
         }
 
-        // Store a list of changes and specs to revert these changes
-        const changes: ChangeSpec[] = [];
-        const reverts: ChangeSpec[] = [];
-
         // Cache the syntax tree if we end up having to access it
         let tree: Tree = null;
+
         const getTree = () => {
           if (!tree) tree = syntaxTree(tr.state);
           return tree;
@@ -155,6 +148,7 @@ export default class SmartTypography extends Plugin {
 
         // Memoize any positions we check so we can avoid some work
         const seenPositions: Record<number, boolean> = {};
+
         const canPerformReplacement = (pos: number) => {
           if (seenPositions[pos] !== undefined) {
             return seenPositions[pos];
@@ -174,6 +168,7 @@ export default class SmartTypography extends Plugin {
         };
 
         let selection = tr.selection;
+
         const adjustSelection = (adjustment: number) => {
           const ranges = selection.ranges.map((r) =>
             EditorSelection.range(r.anchor + adjustment, r.head + adjustment)
@@ -181,13 +176,18 @@ export default class SmartTypography extends Plugin {
           selection = EditorSelection.create(ranges);
         };
 
+        // Store a list of changes and specs to revert these changes
+        const changes: ChangeSpec[] = [];
+        const reverts: ChangeSpec[] = [];
+
         const registerChange = (change: ChangeSpec, revert: ChangeSpec) => {
           changes.push(change);
           reverts.push(revert);
         };
 
         const contextCache: Record<number, string> = {};
-        tr.changes.iterChanges((_a, _b, from, to, inserted) => {
+
+        tr.changes.iterChanges((fromA, _b, fromB, _c, inserted) => {
           const insertedText = inserted.sliceString(0, 0 + inserted.length);
 
           for (let rule of this.inputRules) {
@@ -195,22 +195,22 @@ export default class SmartTypography extends Plugin {
             if (insertedText !== rule.trigger) continue;
 
             // If we're in a codeblock, etc, return early, no need to continue checking
-            if (!canPerformReplacement(from)) return;
+            if (!canPerformReplacement(fromA)) return;
 
             // Grab and cache three chars before the one being inserted
-            if (contextCache[to] === undefined) {
-              contextCache[to] = tr.newDoc.sliceString(from - 3, to - 1);
+            if (contextCache[fromA] === undefined) {
+              contextCache[fromA] = tr.newDoc.sliceString(fromB - 3, fromB);
             }
 
             // Final check: given the context, see if we should perform a replacement
-            if (rule.shouldReplace(contextCache[to])) {
+            if (rule.shouldReplace(contextCache[fromA])) {
               return rule.replace({
                 adjustSelection,
-                context: contextCache[to],
-                from,
+                context: contextCache[fromA],
+                fromA,
+                fromB,
                 registerChange,
                 settings: this.settings,
-                to,
                 tr,
               });
             }
@@ -228,9 +228,7 @@ export default class SmartTypography extends Plugin {
               }),
               selection: selection,
               scrollIntoView: tr.scrollIntoView,
-              changes: tr.changes.compose(
-                ChangeSet.of(changes, tr.newDoc.length)
-              ),
+              changes,
             },
           ];
         }
@@ -514,48 +512,15 @@ class SmartTypographySettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName("Less than or equal to character")
-      .addText((text) => {
-        text
-          .setValue(this.plugin.settings.lessThanOrEqualTo)
+      .setName("Fractions")
+      .setDesc(
+        "1/2 will be converted to ½. Supported UTF-8 fractions: ½, ⅓, ⅔, ¼, ¾, ⅕, ⅖, ⅗, ⅘, ⅙, ⅚, ⅐, ⅛, ⅜, ⅝, ⅞, ⅑, ⅒"
+      )
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.fractions)
           .onChange(async (value) => {
-            if (!value) return;
-            if (value.length > 1) {
-              text.setValue(value[0]);
-              return;
-            }
-            this.plugin.settings.lessThanOrEqualTo = value;
-            await this.plugin.saveSettings();
-          });
-      });
-
-    new Setting(containerEl)
-      .setName("Greater than or equal to character")
-      .addText((text) => {
-        text
-          .setValue(this.plugin.settings.greaterThanOrEqualTo)
-          .onChange(async (value) => {
-            if (!value) return;
-            if (value.length > 1) {
-              text.setValue(value[0]);
-              return;
-            }
-            this.plugin.settings.greaterThanOrEqualTo = value;
-            await this.plugin.saveSettings();
-          });
-      });
-    new Setting(containerEl)
-      .setName("Not equal to character")
-      .addText((text) => {
-        text
-          .setValue(this.plugin.settings.notEqualTo)
-          .onChange(async (value) => {
-            if (!value) return;
-            if (value.length > 1) {
-              text.setValue(value[0]);
-              return;
-            }
-            this.plugin.settings.notEqualTo = value;
+            this.plugin.settings.fractions = value;
             await this.plugin.saveSettings();
           });
       });
