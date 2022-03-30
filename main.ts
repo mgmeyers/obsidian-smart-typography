@@ -587,7 +587,7 @@ class SmartTypographySettingTab extends PluginSettingTab {
   }
 }
 
-const ignoreListRegEx = /frontmatter|code|math|templater/;
+const ignoreListRegEx = /frontmatter|code|math|templater|hashtag/;
 
 function shouldCheckTextAtPos(
   instance: CodeMirror.Editor,
