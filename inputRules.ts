@@ -126,13 +126,13 @@ export const guillemetRules: InputRule[] = [
   {
     trigger: "<",
     from: "<<",
-    to: "«",
+    to: "« ",
     contextMatch: /<$/,
   },
   {
     trigger: ">",
     from: ">>",
-    to: "»",
+    to: " »",
     contextMatch: />$/,
   },
 ];
