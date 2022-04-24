@@ -12,6 +12,8 @@ export interface SmartTypographySettings {
   closeSingle: string;
   openDouble: string;
   closeDouble: string;
+  openGuillemet: string;
+  closeGuillemet: string;
   leftArrow: string;
   rightArrow: string;
 }

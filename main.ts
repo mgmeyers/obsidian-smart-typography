@@ -48,6 +48,9 @@ const DEFAULT_SETTINGS: SmartTypographySettings = {
   openDouble: "“",
   closeDouble: "”",
 
+  openGuillemet: "«",
+  closeGuillemet: "»",
+
   leftArrow: "←",
   rightArrow: "→",
 };
@@ -520,6 +523,28 @@ class SmartTypographySettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           });
       });
+
+    new Setting(containerEl).setName("Open guillemet").addText((text) => {
+      text
+        .setValue(this.plugin.settings.openGuillemet)
+        .onChange(async (value) => {
+          if (!value) return;
+
+          this.plugin.settings.openGuillemet = value;
+          await this.plugin.saveSettings();
+        });
+    });
+
+    new Setting(containerEl).setName("Close guillemet").addText((text) => {
+      text
+        .setValue(this.plugin.settings.closeGuillemet)
+        .onChange(async (value) => {
+          if (!value) return;
+
+          this.plugin.settings.closeGuillemet = value;
+          await this.plugin.saveSettings();
+        });
+    });
 
     new Setting(containerEl)
       .setName("Arrows")
