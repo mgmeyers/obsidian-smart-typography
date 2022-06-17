@@ -7,20 +7,8 @@ import {
   StateField,
   TransactionSpec,
 } from "@codemirror/state";
-import { syntaxTree } from "@codemirror/language";
-import { tokenClassNodeProp } from "@codemirror/stream-parser";
-import { Tree } from "@lezer/common";
-import { SmartTypographySettings } from "types";
 import {
-  legacyArrowRules,
-  legacyEllipsisRules,
-  legacyDashRules,
-  LegacyInputRule,
-  legacySmartQuoteRules,
-  legacyGuillemetRules,
-  legacyComparisonRules,
-} from "legacyInputRules";
-import {
+  InputRule,
   arrowRules,
   comparisonRules,
   dashRules,
@@ -28,9 +16,21 @@ import {
   ellipsisRules,
   fractionRules,
   guillemetRules,
-  InputRule,
   smartQuoteRules,
 } from "inputRules";
+import {
+  LegacyInputRule,
+  legacyArrowRules,
+  legacyComparisonRules,
+  legacyDashRules,
+  legacyEllipsisRules,
+  legacyGuillemetRules,
+  legacySmartQuoteRules,
+} from "legacyInputRules";
+import { syntaxTree, tokenClassNodeProp } from "@codemirror/language";
+
+import { SmartTypographySettings } from "types";
+import { Tree } from "@lezer/common";
 
 const DEFAULT_SETTINGS: SmartTypographySettings = {
   curlyQuotes: true,
