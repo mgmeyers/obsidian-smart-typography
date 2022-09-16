@@ -202,6 +202,21 @@ export const rightArrow: LegacyInputRule = {
   },
 };
 
+export const rightImplicationArrow: LegacyInputRule = {
+  matchTrigger: ">",
+  matchRegExp: /=>$/,
+  performUpdate: (instance, delta, settings) => {
+    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
+      settings.rightArrow,
+    ]);
+  },
+  performRevert: (instance, delta, settings) => {
+    if (instance.getRange(delta.from, delta.to) === settings.rightImplicationArrow) {
+      delta.update(delta.from, delta.to, ["=>"]);
+    }
+  },
+};
+
 export const leftArrow: LegacyInputRule = {
   matchTrigger: "-",
   matchRegExp: /<-$/,
@@ -213,6 +228,21 @@ export const leftArrow: LegacyInputRule = {
   performRevert: (instance, delta, settings) => {
     if (instance.getRange(delta.from, delta.to) === settings.leftArrow) {
       delta.update(delta.from, delta.to, ["<-"]);
+    }
+  },
+};
+
+export const leftImplicationArrow: LegacyInputRule = {
+  matchTrigger: "=",
+  matchRegExp: /<=$/,
+  performUpdate: (instance, delta, settings) => {
+    delta.update({ line: delta.from.line, ch: delta.from.ch - 1 }, delta.to, [
+      settings.leftArrow,
+    ]);
+  },
+  performRevert: (instance, delta, settings) => {
+    if (instance.getRange(delta.from, delta.to) === settings.leftImplicationArrow) {
+      delta.update(delta.from, delta.to, ["<="]);
     }
   },
 };
@@ -310,4 +340,5 @@ export const legacyComparisonRules = [
   notEqualTo,
 ];
 export const legacyArrowRules = [leftArrow, rightArrow];
+export const legacyImplicationArrowRules = [leftImplicationArrow, rightImplicationArrow];
 export const legacyGuillemetRules = [leftGuillemet, rightGuillemet];
