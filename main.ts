@@ -10,6 +10,7 @@ import {
 import {
   InputRule,
   arrowRules,
+  implicationArrowRules,
   comparisonRules,
   dashRules,
   dashRulesSansEnDash,
@@ -21,6 +22,7 @@ import {
 import {
   LegacyInputRule,
   legacyArrowRules,
+  legacyImplicationArrowRules,
   legacyComparisonRules,
   legacyDashRules,
   legacyEllipsisRules,
@@ -37,6 +39,7 @@ const DEFAULT_SETTINGS: SmartTypographySettings = {
   emDash: true,
   ellipsis: true,
   arrows: true,
+  implicationArrows: true,
   comparisons: true,
   fractions: false,
   guillemets: false,
@@ -53,6 +56,9 @@ const DEFAULT_SETTINGS: SmartTypographySettings = {
 
   leftArrow: "←",
   rightArrow: "→",
+
+  leftImplicationArrow: "⇐",
+  rightImplicationArrow: "⇒",
 };
 
 export default class SmartTypography extends Plugin {
@@ -89,6 +95,11 @@ export default class SmartTypography extends Plugin {
     }
 
     if (this.settings.arrows) {
+      this.inputRules.push(...implicationArrowRules);
+      this.legacyInputRules.push(...legacyImplicationArrowRules);
+    }
+
+    if (this.settings.implicationArrows) {
       this.inputRules.push(...arrowRules);
       this.legacyInputRules.push(...legacyArrowRules);
     }
@@ -580,6 +591,44 @@ class SmartTypographySettingTab extends PluginSettingTab {
               return;
             }
             this.plugin.settings.rightArrow = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Implication arrows")
+      .setDesc("<= |=> will be converted to ⇐ | ⇒")
+      .addToggle((toggle) => {
+        toggle.setValue(this.plugin.settings.implicationArrows).onChange(async (value) => {
+          this.plugin.settings.implicationArrows = value;
+          await this.plugin.saveSettings();
+        });
+      });
+
+    new Setting(containerEl).setName("Left implication arrow character").addText((text) => {
+      text.setValue(this.plugin.settings.leftImplicationArrow).onChange(async (value) => {
+        if (!value) return;
+        if (value.length > 1) {
+          text.setValue(value[0]);
+          return;
+        }
+        this.plugin.settings.leftImplicationArrow = value;
+        await this.plugin.saveSettings();
+      });
+    });
+
+    new Setting(containerEl)
+      .setName("Right implication arrow character")
+      .addText((text) => {
+        text
+          .setValue(this.plugin.settings.rightImplicationArrow)
+          .onChange(async (value) => {
+            if (!value) return;
+            if (value.length > 1) {
+              text.setValue(value[0]);
+              return;
+            }
+            this.plugin.settings.rightImplicationArrow = value;
             await this.plugin.saveSettings();
           });
       });

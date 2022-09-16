@@ -3,6 +3,7 @@ export interface SmartTypographySettings {
   emDash: boolean;
   ellipsis: boolean;
   arrows: boolean;
+  implicationArrows: boolean;
   guillemets: boolean;
   comparisons: boolean;
   fractions: boolean;
@@ -16,4 +17,6 @@ export interface SmartTypographySettings {
   closeGuillemet: string;
   leftArrow: string;
   rightArrow: string;
+  leftImplicationArrow: string;
+  rightImplicationArrow: string;
 }

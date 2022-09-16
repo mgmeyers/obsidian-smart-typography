@@ -121,6 +121,22 @@ export const arrowRules: InputRule[] = [
   },
 ];
 
+// Implication arrows
+export const implicationArrowRules: InputRule[] = [
+  {
+    trigger: "=",
+    from: "<=",
+    to: (settings) => settings.leftImplicationArrow,
+    contextMatch: /<$/,
+  },
+  {
+    trigger: ">",
+    from: "=>",
+    to: (settings) => settings.rightImplicationArrow,
+    contextMatch: /=$/,
+  },
+];
+ 
 // Guillemet
 export const guillemetRules: InputRule[] = [
   {
